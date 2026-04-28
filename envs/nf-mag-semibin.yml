@@ -1,0 +1,6 @@
+name: nf-mag-semibin
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - semibin>=2.2

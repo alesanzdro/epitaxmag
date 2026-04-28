@@ -1,0 +1,11 @@
+# Entorno ligero para generación de reporte HTML interactivo con Plotly
+# EpiTaxMAG — FISABIO EPIMOL
+name: nf-metatax-html
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python>=3.10
+  - pandas
+  - numpy
+  - plotly>=5.0

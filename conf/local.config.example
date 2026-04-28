@@ -1,0 +1,33 @@
+/*
+ * local.config.example — Plantilla de configuracion local
+ *
+ * Copiar a conf/local.config y editar segun tu servidor:
+ *   cp conf/local.config.example conf/local.config
+ *
+ * Este fichero contiene rutas y configuracion que dependen de TU maquina.
+ * NO subir a git (esta en .gitignore).
+ */
+
+// ── Bases de datos ──────────────────────��───────────────────────────
+// Ruta donde se descargan/almacenan todas las bases de datos.
+// La primera ejecucion las descarga automaticamente (~360 GB total).
+params.db_root = "${projectDir}/databases"
+
+// ── FastQ Screen ────────────��───────────────────────────────────────
+// El config se genera automaticamente desde los genomas descargados.
+// Si tienes un panel custom, apunta aqui:
+// params.fastqscreen_conf = "/ruta/a/tu/fastq_screen.conf"
+
+// ── Imagen custom Singularity ───────────────────────────────────────
+// Solo necesario si usas -profile singularity
+params.epitaxmag_tools_sif = "${projectDir}/containers/epitaxmag-tools-1.0.0.sif"
+
+// ── Singularity: rutas de montaje ─────────────────────���─────────────
+// Montar discos externos que los containers necesiten ver.
+// autoMounts monta $HOME automaticamente.
+// params.singularity_bind = '--bind /disco1 --bind /disco2'
+
+// ── Proxy de red (opcional) ─────────────────────────────────────���───
+// Descomentar si tu red requiere proxy:
+// env.http_proxy  = 'http://proxy.ejemplo.com:8080'
+// env.https_proxy = 'http://proxy.ejemplo.com:8080'

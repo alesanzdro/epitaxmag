@@ -1,0 +1,6 @@
+name: nf-mag-amrfinderplus
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - ncbi-amrfinderplus>=4.0

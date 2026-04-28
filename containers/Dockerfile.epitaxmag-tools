@@ -1,0 +1,75 @@
+# ============================================================
+# EpiTaxMAG Tools — Imagen multi-herramienta para EpiTaxMAG
+# ============================================================
+# Incluye: fastq_screen, minimap2, samtools, kma,
+#          Python + pandas + numpy + matplotlib + reportlab + plotly
+#
+# Build:
+#   docker build -t epitaxmag-tools:1.0.0 -f containers/Dockerfile .
+#
+# Convertir a Singularity:
+#   singularity build epitaxmag-tools-1.0.0.sif docker-daemon://epitaxmag-tools:1.0.0
+#
+# O build directo con Singularity:
+#   singularity build epitaxmag-tools-1.0.0.sif containers/epitaxmag-tools.def
+# ============================================================
+
+FROM python:3.12-slim
+
+LABEL maintainer="Alejandro Sanz Carbonell (FISABIO / EPIMOL)"
+LABEL version="1.0.0"
+LABEL description="Multi-tool image for EpiTaxMAG pipeline"
+
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        perl wget curl gcc make git bzip2 \
+        zlib1g-dev libbz2-dev liblzma-dev \
+        libcurl4-openssl-dev libncurses5-dev \
+        procps ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python reporting libraries
+RUN pip install --no-cache-dir \
+    pandas numpy matplotlib reportlab plotly
+
+# minimap2 v2.30
+RUN cd /tmp \
+    && wget -q https://github.com/lh3/minimap2/releases/download/v2.30/minimap2-2.30_x64-linux.tar.bz2 \
+    && tar xjf minimap2-2.30_x64-linux.tar.bz2 \
+    && cp minimap2-2.30_x64-linux/minimap2 /usr/local/bin/ \
+    && rm -rf /tmp/minimap2*
+
+# samtools v1.21
+RUN cd /tmp \
+    && wget -q https://github.com/samtools/samtools/releases/download/1.21/samtools-1.21.tar.bz2 \
+    && tar xjf samtools-1.21.tar.bz2 \
+    && cd samtools-1.21 \
+    && ./configure --without-curses --prefix=/usr/local \
+    && make -j$(nproc) && make install \
+    && cd /tmp && rm -rf samtools*
+
+# FastQ Screen v0.16.0 (instalacion completa con templates)
+RUN cd /tmp \
+    && wget -q https://github.com/StevenWingett/FastQ-Screen/archive/refs/tags/v0.16.0.tar.gz \
+    && tar xzf v0.16.0.tar.gz \
+    && mkdir -p /usr/local/share/fastq_screen \
+    && cp -r FastQ-Screen-0.16.0/* /usr/local/share/fastq_screen/ \
+    && ln -sf /usr/local/share/fastq_screen/fastq_screen /usr/local/bin/fastq_screen \
+    && chmod +x /usr/local/bin/fastq_screen \
+    && rm -rf /tmp/FastQ-Screen* /tmp/v0.16.0*
+
+# KMA v1.4.15
+RUN cd /tmp \
+    && git clone https://bitbucket.org/genomicepidemiology/kma.git \
+    && cd kma && make -j$(nproc) \
+    && cp kma kma_index kma_shm /usr/local/bin/ \
+    && cd /tmp && rm -rf kma
+
+# Cleanup build deps
+RUN apt-get remove -y gcc make git wget \
+    && apt-get autoremove -y \
+    && rm -rf /tmp/* /var/lib/apt/lists/*
+
+ENV LC_ALL=C
+ENV PYTHONNOUSERSITE=1
+CMD ["/bin/bash"]

@@ -1,0 +1,6 @@
+name: nf-mag-gtdbtk
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - gtdbtk>=2.7

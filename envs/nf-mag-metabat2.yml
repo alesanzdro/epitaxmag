@@ -1,0 +1,7 @@
+name: nf-mag-metabat2
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - metabat2>=2.18
+  - samtools>=1.21

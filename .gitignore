@@ -1,0 +1,74 @@
+# EpiTaxMAG .gitignore
+
+# Nextflow runtime
+work/
+.nextflow/
+.nextflow.log*
+
+# Results (generated per run)
+results/
+260225_*/
+260226_*/
+
+# Data (user input)
+data/
+
+# Databases (large, downloaded automatically)
+databases/
+
+# Singularity containers (cached)
+containers/*.sif
+
+# Conda environments (cached)
+work/conda/
+
+# OS files
+.DS_Store
+._*
+Thumbs.db
+*~
+*.swp
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# Temporary
+*.tmp
+*.bak
+*.log
+
+# Local config (server-specific paths)
+conf/local.config
+
+# Claude Code session data and project instructions
+CLAUDE.md
+.claude/
+
+# Legacy documentation (Spanish drafts, kept locally)
+docs/epitax_pipeline.md
+docs/epitaxmag_pipeline.md
+docs/pipeline_steps.md
+docs/epitaxmag_methodology.md
+docs/._*
+
+# Generated phenotypic DB (downloaded from NCBI, ~660 MB)
+assets/phenotypic_targets/phenotypic_targets.fa
+assets/phenotypic_targets/phenotypic_targets_db.*
+
+# Run-specific phenotypic data (example, not pipeline code)
+assets/phenotypic_targets/260226_*.tsv
+
+# Accidental files
+devnull
+
+# Legacy scripts (from nanometa, not part of pipeline)
+download_databases_v4.sh
+env_databases.sh
+run_metagenomics.sh
+00_reports/

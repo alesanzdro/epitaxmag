@@ -1,0 +1,9 @@
+# Entorno ligero para KMA AMR screening desde reads
+# EpiTaxMAG — FISABIO EPIMOL
+name: nf-kma
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - kma>=1.4

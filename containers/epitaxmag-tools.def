@@ -1,0 +1,94 @@
+Bootstrap: docker
+From: python:3.12-slim
+
+%labels
+    Author      Alejandro Sanz Carbonell (FISABIO / EPIMOL)
+    Version     1.0.0
+    Description Imagen multi-herramienta para EpiTaxMAG pipeline.
+                Incluye: fastq_screen, minimap2, samtools, kma,
+                y librerías Python para reportes (pandas, plotly, etc.)
+
+%post
+    # ── Dependencias del sistema ─────────────────────────────────
+    apt-get update && apt-get install -y --no-install-recommends \
+        perl \
+        wget \
+        curl \
+        gcc \
+        make \
+        bzip2 \
+        zlib1g-dev \
+        libbz2-dev \
+        liblzma-dev \
+        libcurl4-openssl-dev \
+        libncurses5-dev \
+        procps \
+        ca-certificates \
+        git \
+    && rm -rf /var/lib/apt/lists/*
+
+    # ── Python: librerías para reportes ──────────────────────────
+    pip install --no-cache-dir \
+        pandas \
+        numpy \
+        matplotlib \
+        reportlab \
+        plotly
+
+    # ── minimap2 v2.30 ───────────────────────────────────────────
+    cd /tmp
+    wget -q https://github.com/lh3/minimap2/releases/download/v2.30/minimap2-2.30_x64-linux.tar.bz2
+    tar xjf minimap2-2.30_x64-linux.tar.bz2
+    cp minimap2-2.30_x64-linux/minimap2 /usr/local/bin/
+    rm -rf minimap2-2.30*
+
+    # ── samtools v1.21 ───────────────────────────────────────────
+    cd /tmp
+    wget -q https://github.com/samtools/samtools/releases/download/1.21/samtools-1.21.tar.bz2
+    tar xjf samtools-1.21.tar.bz2
+    cd samtools-1.21
+    ./configure --without-curses --prefix=/usr/local
+    make -j$(nproc)
+    make install
+    cd /tmp && rm -rf samtools-1.21*
+
+    # ── FastQ Screen v0.16.0 ─────────────────────────────────────
+    cd /tmp
+    wget -q https://github.com/StevenWingett/FastQ-Screen/archive/refs/tags/v0.16.0.tar.gz
+    tar xzf v0.16.0.tar.gz
+    mkdir -p /usr/local/share/fastq_screen
+    cp -r FastQ-Screen-0.16.0/* /usr/local/share/fastq_screen/
+    ln -sf /usr/local/share/fastq_screen/fastq_screen /usr/local/bin/fastq_screen
+    chmod +x /usr/local/bin/fastq_screen
+    rm -rf FastQ-Screen* v0.16.0*
+
+    # ── KMA v1.4.15 ──────────────────────────────────────────────
+    cd /tmp
+    git clone https://bitbucket.org/genomicepidemiology/kma.git
+    cd kma
+    make -j$(nproc)
+    cp kma kma_index kma_shm /usr/local/bin/
+    cd /tmp && rm -rf kma
+
+    # ── Limpieza ─────────────────────────────────────────────────
+    apt-get remove -y gcc make git wget
+    apt-get autoremove -y
+    rm -rf /tmp/* /var/lib/apt/lists/*
+
+%environment
+    export LC_ALL=C
+    export PYTHONNOUSERSITE=1
+    export PATH=/usr/local/bin:$PATH
+
+%runscript
+    exec "$@"
+
+%test
+    echo "=== EpiTaxMAG Tools Container ==="
+    python3 --version
+    python3 -c "import pandas, numpy, matplotlib, reportlab, plotly; print('Python libs OK')"
+    minimap2 --version
+    samtools --version | head -1
+    fastq_screen --version 2>&1 || true
+    kma -v 2>&1 | head -1 || echo "KMA OK"
+    echo "=== All tools verified ==="

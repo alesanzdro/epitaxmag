@@ -1,0 +1,6 @@
+name: nf-mag-mobsuite
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - mob_suite>=3.1

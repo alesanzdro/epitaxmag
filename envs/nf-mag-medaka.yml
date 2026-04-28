@@ -1,0 +1,6 @@
+name: nf-mag-medaka
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - medaka>=2.0

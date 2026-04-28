@@ -1,0 +1,6 @@
+name: nf-mag-sourmash
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - sourmash>=4.9

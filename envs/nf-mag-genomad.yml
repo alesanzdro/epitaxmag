@@ -1,0 +1,6 @@
+name: nf-mag-genomad
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - genomad>=1.12

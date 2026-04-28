@@ -1,0 +1,6 @@
+name: nf-mag-quast
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - quast>=5.3

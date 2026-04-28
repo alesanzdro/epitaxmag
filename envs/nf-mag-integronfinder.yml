@@ -1,0 +1,6 @@
+name: nf-mag-integronfinder
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - integron_finder>=2.0

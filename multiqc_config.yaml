@@ -1,0 +1,84 @@
+# ============================================================
+# MultiQC Configuration — EpiTax / EpiTaxMAG Pipeline
+# ============================================================
+# Este fichero se pasa automáticamente a MultiQC desde el proceso
+# MULTIQC en workflow/tax/main.nf
+# ============================================================
+
+# ── Limpieza de nombres de muestra ───────────────────────────
+# Elimina sufijos que las herramientas añaden, para que
+# todas las métricas se consoliden en la misma fila por muestra
+
+extra_fn_clean_exts:
+  - ".filtered"
+  - ".trimmed"
+  - ".clean"
+  - ".bracken.S"
+  - ".bracken.G"
+  - ".bracken.S.report"
+  - ".bracken.G.report"
+  - ".kaiju"
+  - ".kaiju.species"
+  - ".kaiju.genus"
+  - ".kraken2"
+  - ".kraken2.report"
+  - ".kraken2.out"
+  - ".sylph"
+  - ".sorted"
+  - ".fastq"
+  - ".fastq.gz"
+
+fn_clean_sample_names: true
+
+# ── Separar FastQC Raw y Filtered en secciones distintas ──────
+# Usa los directorios de origen para distinguir raw vs filtered
+
+module_order:
+  - fastqc:
+      name: "FastQC (Raw Reads)"
+      path_filters:
+        - "*/01_qc_raw/fastqc/*"
+  - fastqc:
+      name: "FastQC (Filtered Reads)"
+      path_filters:
+        - "*/06_qc_filtered/fastqc/*"
+  - nanostat
+  - fastq_screen
+  - kraken
+  - kaiju
+  - busco
+
+# ── Orden de las secciones ────────────────────────────────────
+report_section_order:
+  fastqc-raw-reads:
+    order: 100
+  fastqc-filtered-reads:
+    order: 200
+  fastq_screen:
+    order: 300
+  nanostat:
+    order: 400
+  kraken:
+    order: 500
+  kaiju:
+    order: 600
+
+# ── Título y branding ─────────────────────────────────────────
+title: "EpiTax — QC Report"
+subtitle: "Pipeline Metagenómica Nanopore | FISABIO — EPIMOL"
+intro_text: "Reporte integrado de control de calidad para el pipeline EpiTax."
+
+custom_logo: null
+custom_logo_url: null
+custom_logo_title: null
+
+show_analysis_paths: false
+show_analysis_time: true
+
+# ── Tabla General Statistics ──────────────────────────────────
+# Columnas a mostrar por defecto
+table_columns_visible:
+  FastQC (Raw Reads):
+    percent_duplicates: false
+  FastQC (Filtered Reads):
+    percent_duplicates: false

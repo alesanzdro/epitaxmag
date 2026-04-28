@@ -1,0 +1,6 @@
+name: nf-mag-flye
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - flye>=2.9.6

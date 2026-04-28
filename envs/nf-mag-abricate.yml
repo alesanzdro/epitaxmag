@@ -1,0 +1,6 @@
+name: nf-mag-abricate
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - abricate>=1.4
