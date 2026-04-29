@@ -4,12 +4,12 @@ From: python:3.12-slim
 %labels
     Author      Alejandro Sanz Carbonell (FISABIO / EPIMOL)
     Version     1.0.0
-    Description Imagen multi-herramienta para EpiTaxMAG pipeline.
-                Incluye: fastq_screen, minimap2, samtools, kma,
-                y librerías Python para reportes (pandas, plotly, etc.)
+    Description Multi-tool image for the EpiTaxMAG pipeline.
+                Bundles: fastq_screen, minimap2, samtools, kma,
+                plus Python libraries for reporting (pandas, plotly, etc.)
 
 %post
-    # ── Dependencias del sistema ─────────────────────────────────
+    # ── System dependencies ──────────────────────────────────────
     apt-get update && apt-get install -y --no-install-recommends \
         perl \
         wget \
@@ -27,7 +27,7 @@ From: python:3.12-slim
         git \
     && rm -rf /var/lib/apt/lists/*
 
-    # ── Python: librerías para reportes ──────────────────────────
+    # ── Python: reporting libraries ──────────────────────────────
     pip install --no-cache-dir \
         pandas \
         numpy \
@@ -70,7 +70,7 @@ From: python:3.12-slim
     cp kma kma_index kma_shm /usr/local/bin/
     cd /tmp && rm -rf kma
 
-    # ── Limpieza ─────────────────────────────────────────────────
+    # ── Cleanup ──────────────────────────────────────────────────
     apt-get remove -y gcc make git wget
     apt-get autoremove -y
     rm -rf /tmp/* /var/lib/apt/lists/*

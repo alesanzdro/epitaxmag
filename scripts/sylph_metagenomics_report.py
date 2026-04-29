@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """
 sylph_metagenomics_report.py
-Informe PDF de perfilado taxonómico Sylph — versión simplificada.
+Sylph taxonomic profiling PDF report — simplified version.
 
-Centrado en GTDB (Bacteria/Archaea):
-  - Composición taxonómica top especies
-  - Curva Whittaker (rank-abundance)
-  - Curva de rarefacción
-  - Candidatos a ensamblaje (cobertura ≥ umbral)
+Focused on GTDB (Bacteria/Archaea):
+  - Top species taxonomic composition
+  - Whittaker (rank-abundance) curve
+  - Rarefaction curve
+  - Assembly candidates (coverage >= threshold)
 
-Uso:
+Usage:
     python3 sylph_metagenomics_report.py <sylph_profile.tsv> [output.pdf] [--min-cov 5]
 """
 
@@ -28,7 +28,7 @@ from datetime import datetime
 
 warnings.filterwarnings('ignore')
 
-# ─── Paleta ──────────────────────────────────────────────────────────
+# ─── Palette ─────────────────────────────────────────────────────────
 PALETTE = [
     '#2C5F8A', '#5B9ABF', '#E05C2A', '#28A745', '#9B59B6',
     '#F39C12', '#1ABC9C', '#E74C3C', '#3498DB', '#95A5A6',
@@ -40,7 +40,7 @@ ORANGE = '#E05C2A'
 GREEN = '#28A745'
 
 
-# ─── Carga de datos ──────────────────────────────────────────────────
+# ─── Data loading ────────────────────────────────────────────────────
 
 def extract_sample(path):
     base = os.path.basename(path)
@@ -50,7 +50,7 @@ def extract_sample(path):
 
 
 def extract_species(contig_name):
-    """Extrae 'Genus species' del campo Contig_name de GTDB."""
+    """Extract 'Genus species' from the GTDB Contig_name field."""
     parts = contig_name.split()
     if len(parts) < 3:
         return contig_name[:40]
@@ -85,15 +85,15 @@ def load_data(tsv_path):
 
 
 def get_gtdb(df):
-    """Filtra solo Bacteria/Archaea, agrupa por especie."""
+    """Filter to Bacteria/Archaea only, group by species."""
     sub = df[df['DB'] == 'Bacteria/Archaea'].copy()
     return sub
 
 
-# ─── Gráficos ────────────────────────────────────────────────────────
+# ─── Charts ──────────────────────────────────────────────────────────
 
 def fig_composition(sample_df, sample_name, top_n=15):
-    """Barras horizontales de top especies (GTDB)."""
+    """Horizontal bar chart of top species (GTDB)."""
     gtdb = get_gtdb(sample_df)
     if gtdb.empty:
         return None
@@ -108,7 +108,7 @@ def fig_composition(sample_df, sample_name, top_n=15):
     rest = grp.iloc[top_n:]['abund'].sum()
     if rest > 0:
         top = pd.concat([top, pd.DataFrame([{
-            'Species': f'Otros ({len(grp) - top_n} spp.)',
+            'Species': f'Other ({len(grp) - top_n} spp.)',
             'abund': rest, 'cov': 0, 'ani': 0
         }])], ignore_index=True)
 
@@ -118,7 +118,7 @@ def fig_composition(sample_df, sample_name, top_n=15):
     y = np.arange(len(top))
     bars = ax.barh(y, top['abund'], color=colors, edgecolor='white', linewidth=0.5)
 
-    # Etiquetas con cobertura si > 0
+    # Labels with coverage if > 0
     for i, (_, row) in enumerate(top.iterrows()):
         label = f"  {row['abund']:.1f}%"
         if row['cov'] > 0:
@@ -128,8 +128,8 @@ def fig_composition(sample_df, sample_name, top_n=15):
     ax.set_yticks(y)
     ax.set_yticklabels(top['Species'], fontsize=9, fontstyle='italic')
     ax.invert_yaxis()
-    ax.set_xlabel('Abundancia taxonómica (%)', fontsize=10)
-    ax.set_title(f'Top {top_n} especies (GTDB) — {sample_name}',
+    ax.set_xlabel('Taxonomic abundance (%)', fontsize=10)
+    ax.set_title(f'Top {top_n} species (GTDB) — {sample_name}',
                  fontsize=12, fontweight='bold', color=BLUE)
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -139,7 +139,7 @@ def fig_composition(sample_df, sample_name, top_n=15):
 
 
 def fig_whittaker(sample_df, sample_name):
-    """Curva Whittaker (rank-abundance) — solo GTDB."""
+    """Whittaker (rank-abundance) curve — GTDB only."""
     gtdb = get_gtdb(sample_df)
     if gtdb.empty:
         return None
@@ -152,7 +152,7 @@ def fig_whittaker(sample_df, sample_name):
     ax.scatter(grp['rank'], grp['Tax_abund'], c=BLUE, s=30, alpha=0.7, zorder=3)
     ax.plot(grp['rank'], grp['Tax_abund'], c=BLUE, alpha=0.4, linewidth=1)
 
-    # Anotar top 5
+    # Annotate top 5
     for _, row in grp.head(5).iterrows():
         label = row['Species'][:25] + '…' if len(row['Species']) > 27 else row['Species']
         ax.annotate(label, (row['rank'], row['Tax_abund']),
@@ -161,9 +161,9 @@ def fig_whittaker(sample_df, sample_name):
                     arrowprops=dict(arrowstyle='-', color='grey', lw=0.5))
 
     ax.set_yscale('log')
-    ax.set_xlabel('Rango (más → menos abundante)', fontsize=10)
-    ax.set_ylabel('Abundancia taxonómica (%, log)', fontsize=10)
-    ax.set_title(f'Curva Rank-Abundance (Whittaker) — {sample_name}  [{len(grp)} spp.]',
+    ax.set_xlabel('Rank (most → least abundant)', fontsize=10)
+    ax.set_ylabel('Taxonomic abundance (%, log)', fontsize=10)
+    ax.set_title(f'Rank-Abundance curve (Whittaker) — {sample_name}  [{len(grp)} spp.]',
                  fontsize=12, fontweight='bold', color=BLUE)
     ax.grid(True, linestyle='--', alpha=0.3)
     ax.spines['top'].set_visible(False)
@@ -173,7 +173,7 @@ def fig_whittaker(sample_df, sample_name):
 
 
 def fig_rarefaction(sample_df, sample_name, n_steps=40, n_rep=5):
-    """Curva de rarefacción simulada desde abundancias."""
+    """Rarefaction curve simulated from abundances."""
     gtdb = get_gtdb(sample_df)
     if gtdb.empty or len(gtdb) < 2:
         return None
@@ -205,16 +205,16 @@ def fig_rarefaction(sample_df, sample_name, n_steps=40, n_rep=5):
     ax.text(steps[-1] * 0.5, n_total * 1.03,
             f'Total: {n_total} spp.', fontsize=8, color='grey')
 
-    # Veredicto
+    # Verdict
     plateau_pct = means[-1] / n_total * 100
     if plateau_pct > 80:
-        verdict = f'Meseta alcanzada ({plateau_pct:.0f}%) — profundidad suficiente'
+        verdict = f'Plateau reached ({plateau_pct:.0f}%) — depth is sufficient'
         vcolor = 'green'
     elif plateau_pct > 50:
-        verdict = f'Curva moderada ({plateau_pct:.0f}%) — profundidad aceptable'
+        verdict = f'Moderate curve ({plateau_pct:.0f}%) — depth is acceptable'
         vcolor = 'orange'
     else:
-        verdict = f'Curva ascendente ({plateau_pct:.0f}%) — aumentar profundidad'
+        verdict = f'Rising curve ({plateau_pct:.0f}%) — increase depth'
         vcolor = 'red'
 
     ax.text(0.02, 0.95, verdict, transform=ax.transAxes,
@@ -223,9 +223,9 @@ def fig_rarefaction(sample_df, sample_name, n_steps=40, n_rep=5):
                       edgecolor=vcolor, alpha=0.9))
 
     ax.set_xscale('log')
-    ax.set_xlabel('Lecturas simuladas', fontsize=10)
-    ax.set_ylabel('Especies detectadas', fontsize=10)
-    ax.set_title(f'Curva de Rarefacción — {sample_name}',
+    ax.set_xlabel('Simulated reads', fontsize=10)
+    ax.set_ylabel('Species detected', fontsize=10)
+    ax.set_title(f'Rarefaction curve — {sample_name}',
                  fontsize=12, fontweight='bold', color=BLUE)
     ax.grid(True, linestyle='--', alpha=0.3)
     ax.spines['top'].set_visible(False)
@@ -236,8 +236,8 @@ def fig_rarefaction(sample_df, sample_name, n_steps=40, n_rep=5):
 
 def fig_assembly_candidates(sample_df, sample_name, min_cov=5.0):
     """
-    Tabla de especies con cobertura ≥ min_cov.
-    Estas son candidatas interesantes para ensamblaje dirigido.
+    Table of species with coverage >= min_cov.
+    These are interesting candidates for targeted assembly.
     """
     gtdb = get_gtdb(sample_df)
     if gtdb.empty:
@@ -258,7 +258,7 @@ def fig_assembly_candidates(sample_df, sample_name, min_cov=5.0):
     ax.axis('off')
 
     # Header
-    headers = ['Especie', 'Cob. efectiva (×)', 'ANI (%)', 'Abund. (%)', 'Viabilidad']
+    headers = ['Species', 'Eff. coverage (×)', 'ANI (%)', 'Abund. (%)', 'Viability']
     col_x = [0.0, 0.45, 0.60, 0.72, 0.84]
 
     for j, (h, x) in enumerate(zip(headers, col_x)):
@@ -266,7 +266,7 @@ def fig_assembly_candidates(sample_df, sample_name, min_cov=5.0):
                 fontsize=9, fontweight='bold', color='white', va='center')
     ax.axhspan(0.94, 1.02, color=BLUE, transform=ax.transAxes, zorder=0)
 
-    # Filas
+    # Rows
     for i, (_, row) in enumerate(candidates.iterrows()):
         y = 0.92 - i * (0.85 / max(n, 1))
         bg = '#F0F4F7' if i % 2 == 0 else 'white'
@@ -284,27 +284,27 @@ def fig_assembly_candidates(sample_df, sample_name, min_cov=5.0):
         ax.text(col_x[3] + 0.04, y, f"{row['abund']:.1f}",
                 transform=ax.transAxes, fontsize=8.5, va='center', ha='center')
 
-        # Viabilidad de ensamblaje
+        # Assembly viability
         if row['cov'] >= 20:
-            via = '●●● Excelente'
+            via = '●●● Excellent'
             vcolor = GREEN
         elif row['cov'] >= 10:
-            via = '●●○ Buena'
+            via = '●●○ Good'
             vcolor = ORANGE
         else:
-            via = '●○○ Posible'
+            via = '●○○ Possible'
             vcolor = '#999'
         ax.text(col_x[4] + 0.06, y, via, transform=ax.transAxes,
                 fontsize=8, va='center', ha='center', color=vcolor, fontweight='bold')
 
     ax.set_title(
-        f'Candidatos a ensamblaje (cov ≥ {min_cov}×) — {sample_name}  [{n} especies]',
+        f'Assembly candidates (cov ≥ {min_cov}×) — {sample_name}  [{n} species]',
         fontsize=11, fontweight='bold', color=BLUE, pad=15)
 
-    # Leyenda
+    # Legend
     legend_text = (
-        f'Criterio: cobertura efectiva ≥ {min_cov}× (estimada por Sylph).  '
-        '●●● ≥20× excelente para MAG  |  ●●○ ≥10× buena  |  ●○○ ≥5× posible con más datos'
+        f'Criterion: effective coverage >= {min_cov}× (estimated by Sylph).  '
+        '●●● ≥20× excellent for MAG  |  ●●○ ≥10× good  |  ●○○ ≥5× possible with more data'
     )
     ax.text(0.5, -0.05, legend_text, transform=ax.transAxes,
             fontsize=7.5, ha='center', color='#666')
@@ -314,7 +314,7 @@ def fig_assembly_candidates(sample_df, sample_name, min_cov=5.0):
 
 
 def fig_cover(tsv_path, df):
-    """Portada."""
+    """Cover page."""
     fig = plt.figure(figsize=(14, 10))
     fig.patch.set_facecolor(BLUE)
     ax = fig.add_axes([0, 0, 1, 1])
@@ -323,7 +323,7 @@ def fig_cover(tsv_path, df):
 
     ax.add_patch(plt.Rectangle((0, 0), 0.015, 1, transform=ax.transAxes, color=ORANGE, zorder=5))
 
-    ax.text(0.5, 0.80, 'Informe Metagenómico Sylph', transform=ax.transAxes,
+    ax.text(0.5, 0.80, 'Sylph Metagenomic Report', transform=ax.transAxes,
             fontsize=26, fontweight='bold', color='white', ha='center')
     ax.text(0.5, 0.72, os.path.basename(tsv_path), transform=ax.transAxes,
             fontsize=13, color='#AACCEE', ha='center', style='italic')
@@ -334,9 +334,9 @@ def fig_cover(tsv_path, df):
     n_cand = len(gtdb.groupby('Species')['Eff_cov'].mean().loc[lambda x: x >= 5])
 
     stats = [
-        ('Muestras', str(n_samples)),
-        ('Spp. detectadas', str(n_bact)),
-        ('Candidatos asm.', str(n_cand)),
+        ('Samples', str(n_samples)),
+        ('Spp. detected', str(n_bact)),
+        ('Asm. candidates', str(n_cand)),
     ]
 
     xs = np.linspace(0.2, 0.8, len(stats))
@@ -352,7 +352,7 @@ def fig_cover(tsv_path, df):
 
     ax.text(0.5, 0.40, 'GTDB r226 (Bacteria/Archaea) — Sylph ANI-based profiling',
             transform=ax.transAxes, fontsize=11, color='white', ha='center', fontweight='bold')
-    ax.text(0.5, 0.22, f'Generado: {datetime.now().strftime("%d/%m/%Y %H:%M")}',
+    ax.text(0.5, 0.22, f'Generated: {datetime.now().strftime("%d/%m/%Y %H:%M")}',
             transform=ax.transAxes, fontsize=10, color='#AACCEE', ha='center')
     ax.text(0.5, 0.16, 'FISABIO | EPIMOL',
             transform=ax.transAxes, fontsize=12, color='white', ha='center', fontweight='bold')
@@ -360,29 +360,29 @@ def fig_cover(tsv_path, df):
     return fig
 
 
-# ─── Construcción del PDF ────────────────────────────────────────────
+# ─── PDF construction ────────────────────────────────────────────────
 
 def build_pdf(tsv_path, out_path, min_cov=5.0):
-    print(f'[INFO] Cargando: {tsv_path}')
+    print(f'[INFO] Loading: {tsv_path}')
     df = load_data(tsv_path)
     samples = sorted(df['Sample'].unique())
     gtdb = get_gtdb(df)
-    print(f'[INFO] {len(samples)} muestras | {gtdb["Species"].nunique()} spp. GTDB')
+    print(f'[INFO] {len(samples)} samples | {gtdb["Species"].nunique()} GTDB spp.')
 
     np.random.seed(42)
 
     with PdfPages(out_path) as pdf:
-        # Portada
+        # Cover page
         fig = fig_cover(tsv_path, df)
         pdf.savefig(fig, facecolor=fig.get_facecolor())
         plt.close(fig)
 
-        # Por muestra
+        # Per-sample
         for s in samples:
             print(f'[PDF] {s}')
             sdf = df[df['Sample'] == s]
 
-            # 1. Composición top especies
+            # 1. Top species composition
             fig = fig_composition(sdf, s)
             if fig:
                 pdf.savefig(fig, bbox_inches='tight')
@@ -394,13 +394,13 @@ def build_pdf(tsv_path, out_path, min_cov=5.0):
                 pdf.savefig(fig, bbox_inches='tight')
                 plt.close(fig)
 
-            # 3. Rarefacción
+            # 3. Rarefaction
             fig = fig_rarefaction(sdf, s)
             if fig:
                 pdf.savefig(fig, bbox_inches='tight')
                 plt.close(fig)
 
-            # 4. Candidatos a ensamblaje
+            # 4. Assembly candidates
             fig = fig_assembly_candidates(sdf, s, min_cov=min_cov)
             if fig:
                 pdf.savefig(fig, bbox_inches='tight')
@@ -411,7 +411,7 @@ def build_pdf(tsv_path, out_path, min_cov=5.0):
         d['Title'] = f'Sylph Report — {os.path.basename(tsv_path)}'
         d['Author'] = 'FISABIO | EPIMOL'
 
-    print(f'\n[OK] Informe: {out_path}')
+    print(f'\n[OK] Report: {out_path}')
 
 
 # ─── Main ────────────────────────────────────────────────────────────
@@ -419,14 +419,14 @@ def build_pdf(tsv_path, out_path, min_cov=5.0):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('tsv', help='Fichero TSV de sylph profile')
-    parser.add_argument('output', nargs='?', default=None, help='PDF de salida')
+    parser.add_argument('tsv', help='Sylph profile TSV file')
+    parser.add_argument('output', nargs='?', default=None, help='Output PDF')
     parser.add_argument('--min-cov', type=float, default=5.0,
-                        help='Cobertura mínima para candidatos a ensamblaje (default: 5×)')
+                        help='Minimum coverage for assembly candidates (default: 5x)')
     args = parser.parse_args()
 
     if not os.path.isfile(args.tsv):
-        print(f'[ERROR] No existe: {args.tsv}')
+        print(f'[ERROR] Does not exist: {args.tsv}')
         sys.exit(1)
 
     out = args.output or os.path.splitext(args.tsv)[0] + '_report.pdf'

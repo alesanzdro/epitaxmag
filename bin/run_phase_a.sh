@@ -1,18 +1,18 @@
 #!/bin/bash
-# EpiTaxMAG Fase A — Modulos adicionales sobre resultados existentes
-# Sin tocar Nextflow. Corre directamente con Singularity.
+# EpiTaxMAG Phase A — additional modules on top of existing MAG results.
+# Bypasses Nextflow and runs directly with Singularity.
 #
-# Uso:
+# Usage:
 #   bash bin/run_phase_a.sh results/260226_EPIM232
 #
-# Requisitos:
-#   - Singularity instalado
-#   - Resultados de MAG completados (pasos 14-25)
-#   - Containers se descargan automaticamente al cache
+# Requirements:
+#   - Singularity installed
+#   - MAG results already produced (pipeline steps 14-25)
+#   - Containers are pulled into the cache on first use
 
 set -euo pipefail
 
-RESULTS="${1:?Uso: bash bin/run_phase_a.sh results/<run_name>}"
+RESULTS="${1:?Usage: bash bin/run_phase_a.sh results/<run_name>}"
 RUN_NAME=$(basename "$RESULTS")
 THREADS="${2:-16}"
 
@@ -30,7 +30,7 @@ SIF_AMRFINDER="$CACHE/depot.galaxyproject.org-singularity-ncbi-amrfinderplus%3A4
 pull_if_missing() {
     local sif="$1" url="$2"
     if [ ! -f "$sif" ]; then
-        echo "  Descargando $(basename "$sif")..."
+        echo "  Downloading $(basename "$sif")..."
         singularity pull --name "$(basename "$sif")" "$url"
         mv "$(basename "$sif")" "$sif"
     fi
@@ -41,14 +41,14 @@ srun() {
 }
 
 echo ""
-echo "  EpiTaxMAG Fase A — Modulos adicionales"
+echo "  EpiTaxMAG Phase A — additional modules"
 echo "  Run: $RUN_NAME"
 echo "  Threads: $THREADS"
 echo "  Cache: $CACHE"
 echo ""
 
-# Pull containers si faltan
-echo "[1/6] Verificando containers..."
+# Pull containers if missing
+echo "[1/6] Checking containers..."
 pull_if_missing "$SIF_ABRICATE" "https://depot.galaxyproject.org/singularity/abricate%3A1.4.0--h05cac1d_0"
 pull_if_missing "$SIF_MOBSUITE" "https://depot.galaxyproject.org/singularity/mob_suite%3A3.1.9--pyhdfd78af_1"
 pull_if_missing "$SIF_BAKTA" "https://depot.galaxyproject.org/singularity/bakta%3A1.12.0--pyhdfd78af_0"
@@ -56,14 +56,14 @@ pull_if_missing "$SIF_INTFINDER" "https://depot.galaxyproject.org/singularity/in
 echo "  Containers OK"
 
 # ══════════════════════════════════════════════════════════════
-# MODULO 1: ABRicate — Virulencia (VFDB) + PlasmidFinder
+# MODULE 1: ABRicate — virulence (VFDB) + AMR (CARD) + PlasmidFinder
 # ══════════════════════════════════════════════════════════════
 ABRICATE_DIR="$RESULTS/30_abricate"
 echo ""
 echo "[2/6] ABRicate (VFDB + CARD + PlasmidFinder)..."
 
 if [ -d "$ABRICATE_DIR" ] && [ "$(find "$ABRICATE_DIR" -name "*.vfdb.tsv" 2>/dev/null | wc -l)" -gt 0 ]; then
-    echo "  Ya existe, saltando"
+    echo "  Already present, skipping"
 else
     mkdir -p "$ABRICATE_DIR"
     for sample_dir in "$RESULTS"/21_binning_dastool/*/; do
@@ -84,25 +84,25 @@ else
             done
         done
 
-        # Resumen por muestra
+        # Per-sample summary
         srun "$SIF_ABRICATE" abricate --summary "$ABRICATE_DIR/$sample"/*.vfdb.tsv \
             > "$ABRICATE_DIR/$sample/${sample}_vfdb_summary.tsv" 2>/dev/null || true
         srun "$SIF_ABRICATE" abricate --summary "$ABRICATE_DIR/$sample"/*.card.tsv \
             > "$ABRICATE_DIR/$sample/${sample}_card_summary.tsv" 2>/dev/null || true
 
-        echo "  $sample: $n_bins MAGs procesados"
+        echo "  $sample: $n_bins MAGs processed"
     done
 fi
 
 # ══════════════════════════════════════════════════════════════
-# MODULO 2: MOB-suite — Caracterizacion de plasmidos
+# MODULE 2: MOB-suite — plasmid characterization
 # ══════════════════════════════════════════════════════════════
 MOBSUITE_DIR="$RESULTS/31_mobsuite"
 echo ""
-echo "[3/6] MOB-suite (tipificacion de plasmidos)..."
+echo "[3/6] MOB-suite (plasmid typing)..."
 
 if [ -d "$MOBSUITE_DIR" ] && [ "$(find "$MOBSUITE_DIR" -name "mobtyper_results.txt" 2>/dev/null | wc -l)" -gt 0 ]; then
-    echo "  Ya existe, saltando"
+    echo "  Already present, skipping"
 else
     mkdir -p "$MOBSUITE_DIR"
     for asm in "$RESULTS"/15_polish_medaka/*.polished.fasta; do
@@ -112,7 +112,7 @@ else
         [ -d "$out_dir" ] && [ -f "$out_dir/mobtyper_results.txt" ] && continue
 
         mkdir -p "$out_dir"
-        echo "  $sample: corriendo mob_recon..."
+        echo "  $sample: running mob_recon..."
         srun "$SIF_MOBSUITE" mob_recon \
             --infile "$asm" \
             --outdir "$out_dir" \
@@ -122,14 +122,14 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════
-# MODULO 3: IntegronFinder — Integrones
+# MODULE 3: IntegronFinder — integron detection
 # ══════════════════════════════════════════════════════════════
 INTFINDER_DIR="$RESULTS/32_integronfinder"
 echo ""
-echo "[4/6] IntegronFinder (integrones de clase 1/2/3)..."
+echo "[4/6] IntegronFinder (class 1/2/3 integrons)..."
 
 if [ -d "$INTFINDER_DIR" ] && [ "$(find "$INTFINDER_DIR" -name "*.integrons" 2>/dev/null | wc -l)" -gt 0 ]; then
-    echo "  Ya existe, saltando"
+    echo "  Already present, skipping"
 else
     mkdir -p "$INTFINDER_DIR"
     for asm in "$RESULTS"/15_polish_medaka/*.polished.fasta; do
@@ -138,7 +138,7 @@ else
         out_dir="$INTFINDER_DIR/$sample"
         [ -d "$out_dir" ] && continue
 
-        echo "  $sample: buscando integrones..."
+        echo "  $sample: searching for integrons..."
         # IntegronFinder needs writable tmp
         export TMPDIR="$RESULTS/../work/tmp"
         mkdir -p "$TMPDIR"
@@ -151,14 +151,14 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════
-# MODULO 4: AMRFinderPlus con --organism (mutaciones puntuales)
+# MODULE 4: AMRFinderPlus with --organism (point mutations)
 # ══════════════════════════════════════════════════════════════
 AMR_ORG_DIR="$RESULTS/33_amr_organism"
 echo ""
-echo "[5/6] AMRFinderPlus --organism (mutaciones puntuales)..."
+echo "[5/6] AMRFinderPlus --organism (point mutations)..."
 
 if [ -d "$AMR_ORG_DIR" ] && [ "$(find "$AMR_ORG_DIR" -name "*_amr_org.tsv" 2>/dev/null | wc -l)" -gt 0 ]; then
-    echo "  Ya existe, saltando"
+    echo "  Already present, skipping"
 else
     mkdir -p "$AMR_ORG_DIR"
 
@@ -226,20 +226,20 @@ else
 fi
 
 # ══════════════════════════════════════════════════════════════
-# MODULO 5: Bakta — Anotacion funcional de MAGs
+# MODULE 5: Bakta — functional annotation of MAGs
 # ══════════════════════════════════════════════════════════════
 BAKTA_DIR="$RESULTS/34_bakta"
 echo ""
-echo "[6/6] Bakta (anotacion funcional de MAGs)..."
+echo "[6/6] Bakta (functional annotation of MAGs)..."
 
 if [ -d "$BAKTA_DIR" ] && [ "$(find "$BAKTA_DIR" -name "*.gff3" 2>/dev/null | wc -l)" -gt 0 ]; then
-    echo "  Ya existe, saltando"
+    echo "  Already present, skipping"
 else
     mkdir -p "$BAKTA_DIR"
     BAKTA_DB="$DB_ROOT/bakta/db"
 
     if [ ! -d "$BAKTA_DB" ]; then
-        echo "  AVISO: Bakta DB no encontrada en $BAKTA_DB. Saltando Bakta."
+        echo "  WARNING: Bakta DB not found at $BAKTA_DB. Skipping Bakta."
     else
         for sample_dir in "$RESULTS"/21_binning_dastool/*/; do
             sample=$(basename "$sample_dir")
@@ -265,16 +265,16 @@ else
                     --skip-plot \
                     "$bin_fa" 2>/dev/null || true
             done
-            echo "  $sample: $n_bins MAGs anotados"
+            echo "  $sample: $n_bins MAGs annotated"
         done
     fi
 fi
 
 # ══════════════════════════════════════════════════════════════
-# RESUMEN
+# SUMMARY
 # ══════════════════════════════════════════════════════════════
 echo ""
-echo "  Fase A completada"
+echo "  Phase A complete"
 echo "  ────────────────────────────"
 
 n_vfdb=$(find "$ABRICATE_DIR" -name "*.vfdb.tsv" -size +0 2>/dev/null | wc -l)
@@ -283,13 +283,13 @@ n_int=$(find "$INTFINDER_DIR" -name "*.integrons" 2>/dev/null | wc -l)
 n_org=$(find "$AMR_ORG_DIR" -name "*_amr_org.tsv" -size +0 2>/dev/null | wc -l)
 n_bakta=$(find "$BAKTA_DIR" -name "*.gff3" 2>/dev/null | wc -l)
 
-echo "  ABRicate VFDB:       $n_vfdb ficheros"
-echo "  MOB-suite:           $n_mob muestras"
-echo "  IntegronFinder:      $n_int ficheros"
+echo "  ABRicate VFDB:       $n_vfdb files"
+echo "  MOB-suite:           $n_mob samples"
+echo "  IntegronFinder:      $n_int files"
 echo "  AMRFinderPlus --org: $n_org MAGs"
-echo "  Bakta:               $n_bakta MAGs anotados"
+echo "  Bakta:               $n_bakta MAGs annotated"
 echo ""
-echo "  Para generar el Excel actualizado:"
+echo "  To rebuild the Excel report:"
 echo "  python3 scripts/generate_excel_report.py \\"
 echo "      --results-dir $RESULTS \\"
 echo "      --run-name $RUN_NAME \\"

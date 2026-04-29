@@ -1,16 +1,16 @@
 # ============================================================
-# EpiTaxMAG Tools — Imagen multi-herramienta para EpiTaxMAG
+# EpiTaxMAG Tools — multi-tool image for the EpiTaxMAG pipeline
 # ============================================================
-# Incluye: fastq_screen, minimap2, samtools, kma,
+# Bundles: fastq_screen, minimap2, samtools, kma,
 #          Python + pandas + numpy + matplotlib + reportlab + plotly
 #
 # Build:
 #   docker build -t epitaxmag-tools:1.0.0 -f containers/Dockerfile .
 #
-# Convertir a Singularity:
+# Convert to Singularity:
 #   singularity build epitaxmag-tools-1.0.0.sif docker-daemon://epitaxmag-tools:1.0.0
 #
-# O build directo con Singularity:
+# Or build directly with Singularity:
 #   singularity build epitaxmag-tools-1.0.0.sif containers/epitaxmag-tools.def
 # ============================================================
 
@@ -48,7 +48,7 @@ RUN cd /tmp \
     && make -j$(nproc) && make install \
     && cd /tmp && rm -rf samtools*
 
-# FastQ Screen v0.16.0 (instalacion completa con templates)
+# FastQ Screen v0.16.0 (full install, templates included)
 RUN cd /tmp \
     && wget -q https://github.com/StevenWingett/FastQ-Screen/archive/refs/tags/v0.16.0.tar.gz \
     && tar xzf v0.16.0.tar.gz \

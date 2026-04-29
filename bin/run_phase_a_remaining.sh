@@ -1,10 +1,10 @@
 #!/bin/bash
-# EpiTaxMAG Fase A — Modulos pendientes: AMRFinderPlus --organism + Bakta
-# Uso: bash bin/run_phase_a_remaining.sh results/260226_EPIM232 16
+# EpiTaxMAG Phase A — remaining modules: AMRFinderPlus --organism + Bakta
+# Usage: bash bin/run_phase_a_remaining.sh results/260226_EPIM232 16
 
 set -euo pipefail
 
-RESULTS="${1:?Uso: bash bin/run_phase_a_remaining.sh results/<run>}"
+RESULTS="${1:?Usage: bash bin/run_phase_a_remaining.sh results/<run>}"
 THREADS="${2:-16}"
 
 CACHE="${NXF_SINGULARITY_CACHEDIR:-/GRU0/DATABASES/singularity_cache}"
@@ -19,12 +19,12 @@ mkdir -p "$FAKEHOME"
 srun() { singularity exec --home "$FAKEHOME" $BIND "$@"; }
 
 echo ""
-echo "  Fase A restante: AMRFinderPlus --organism + Bakta"
+echo "  Phase A (remaining): AMRFinderPlus --organism + Bakta"
 echo "  Threads: $THREADS"
 echo ""
 
 # ══════════════════════════════════════════════════════════════
-# MODULO 1: AMRFinderPlus --organism (mutaciones puntuales)
+# MODULE 1: AMRFinderPlus --organism (point mutations)
 # ══════════════════════════════════════════════════════════════
 AMR_ORG_DIR="$RESULTS/33_amr_organism"
 echo "[1/2] AMRFinderPlus --organism..."
@@ -88,20 +88,20 @@ for sample_dir in "$RESULTS"/21_binning_dastool/*/; do
                 --output "$out" 2>/dev/null || true
         fi
     done < "$tax_file"
-    echo "  $sample: completado"
+    echo "  $sample: complete"
 done
 echo "  AMRFinderPlus --organism: OK"
 
 # ══════════════════════════════════════════════════════════════
-# MODULO 2: Bakta — Anotacion funcional de MAGs
+# MODULE 2: Bakta — functional annotation of MAGs
 # ══════════════════════════════════════════════════════════════
 BAKTA_DIR="$RESULTS/34_bakta"
 BAKTA_DB="$DB_ROOT/bakta/db"
 echo ""
-echo "[2/2] Bakta (anotacion funcional)..."
+echo "[2/2] Bakta (functional annotation)..."
 
 if [ ! -d "$BAKTA_DB" ]; then
-    echo "  ERROR: Bakta DB no encontrada en $BAKTA_DB"
+    echo "  ERROR: Bakta DB not found at $BAKTA_DB"
     exit 1
 fi
 
@@ -123,7 +123,7 @@ for sample_dir in "$RESULTS"/21_binning_dastool/*/; do
         bin_name=$(basename "$bin_fa" .fa)
         out_dir="$BAKTA_DIR/$sample/$bin_name"
 
-        # Skip si ya completado
+        # Skip if already complete
         if [ -d "$out_dir" ] && [ -f "$out_dir/${bin_name}.gff3" ]; then
             DONE_BAKTA=$((DONE_BAKTA+1))
             continue
@@ -145,16 +145,16 @@ for sample_dir in "$RESULTS"/21_binning_dastool/*/; do
                 $bin_fa" 2>"$out_dir/bakta.log" || true
         DONE_BAKTA=$((DONE_BAKTA+1))
     done
-    echo "  $sample: $DONE_BAKTA/$n_bins MAGs anotados"
+    echo "  $sample: $DONE_BAKTA/$n_bins MAGs annotated"
 done
 
 # ══════════════════════════════════════════════════════════════
-# RESUMEN
+# SUMMARY
 # ══════════════════════════════════════════════════════════════
 echo ""
-echo "  Fase A restante completada"
+echo "  Phase A (remaining) complete"
 echo "  AMRFinderPlus --organism: $(find "$AMR_ORG_DIR" -name "*_amr_org.tsv" -size +0 2>/dev/null | wc -l) MAGs"
-echo "  Bakta: $(find "$BAKTA_DIR" -name "*.gff3" 2>/dev/null | wc -l) MAGs anotados"
+echo "  Bakta: $(find "$BAKTA_DIR" -name "*.gff3" 2>/dev/null | wc -l) MAGs annotated"
 echo ""
-echo "  Regenerar Excel:"
+echo "  Rebuild Excel report:"
 echo "  python3 scripts/generate_excel_report.py --results-dir $RESULTS --run-name $(basename $RESULTS) --input-dir /path/to/raw/fastqs --output $RESULTS/27_reports/$(basename $RESULTS)_full_report_final.xlsx"

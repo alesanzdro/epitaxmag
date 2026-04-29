@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """
 phenotypic_check.py
-Cruza resultados fenotipicos (microbiologia convencional) con evidencia
-metagenomica de multiples fuentes para verificacion de organismos target.
+Cross conventional-microbiology phenotypic results with metagenomic
+evidence from multiple sources to verify target organisms.
 
-Cascade de evidencia:
-  Tier 1: MAG con GTDB-Tk match (completeness >=50%)
+Evidence cascade:
+  Tier 1: MAG with GTDB-Tk match (completeness >=50%)
   Tier 2: Sylph hit (ANI >=95, abundance >=0.01%)
   Tier 3: Kraken2/Bracken (reads >=50)
   Tier 4: KMA type-strain (depth >=1x, identity >=90%)
-  Tier 0: No detectado
+  Tier 0: not detected
 
-Uso:
+Usage:
   python3 scripts/phenotypic_check.py \
       --results-dir results/260226_EPIM232 \
       --phenotypic assets/phenotypic_targets/260226_EPIM232.tsv \

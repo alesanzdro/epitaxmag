@@ -1,10 +1,10 @@
 #!/bin/bash
-# IntegronFinder sobre MAGs (bins) — mucho mas rapido que sobre assemblies completos
-# Uso: bash bin/run_integronfinder_mags.sh results/260226_EPIM232
+# IntegronFinder over MAGs (bins) — much faster than over full assemblies
+# Usage: bash bin/run_integronfinder_mags.sh results/260226_EPIM232
 
 set -euo pipefail
 
-RESULTS="${1:?Uso: bash bin/run_integronfinder_mags.sh results/<run>}"
+RESULTS="${1:?Usage: bash bin/run_integronfinder_mags.sh results/<run>}"
 THREADS="${2:-8}"
 MAX_PARALLEL="${3:-6}"
 
@@ -16,7 +16,7 @@ TMPBASE="$RESULTS/../work/tmp"
 
 mkdir -p "$OUTDIR" "$TMPBASE"
 
-echo "  IntegronFinder sobre MAGs: $MAX_PARALLEL paralelos x $THREADS threads"
+echo "  IntegronFinder over MAGs: $MAX_PARALLEL parallel x $THREADS threads"
 
 RUNNING=0
 TOTAL=0
@@ -30,7 +30,7 @@ for sample_dir in "$RESULTS"/21_binning_dastool/*/; do
         bin_name=$(basename "$bin_fa" .fa)
         out_dir="$OUTDIR/${sample}/${bin_name}"
 
-        # Skip si ya completado
+        # Skip if already complete
         if [ -d "$out_dir" ] && find "$out_dir" -name "*.integrons" 2>/dev/null | grep -q .; then
             continue
         fi
@@ -62,6 +62,6 @@ done
 wait
 
 echo ""
-echo "  Completado: $TOTAL MAGs procesados"
+echo "  Done: $TOTAL MAGs processed"
 n_found=$(find "$OUTDIR" -name "*.integrons" -size +0 2>/dev/null | xargs grep -l "^[^#]" 2>/dev/null | wc -l)
-echo "  MAGs con integrones: $n_found"
+echo "  MAGs with integrons: $n_found"

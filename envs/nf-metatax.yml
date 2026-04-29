@@ -1,6 +1,6 @@
-# Entorno Conda para el pipeline EpiTaxMAG — Fase TAX
-# Nextflow lo crea y cachea automáticamente en work/conda/
-# Incluye: QC, trimming, taxonomía, y librerías Python para reportes PDF
+# Conda environment for the EpiTaxMAG pipeline — TAX phase.
+# Nextflow creates and caches it automatically under work/conda/.
+# Covers QC, trimming, taxonomy, and the Python libraries used for PDF reports.
 name: nf-metatax
 channels:
   - conda-forge
@@ -14,10 +14,10 @@ dependencies:
   - fastq-screen>=0.15
   - minimap2>=2.28
   - samtools>=1.21
-  # Trimming / Filtrado
+  # Trimming / filtering
   - porechop_abi>=0.5
   - chopper>=0.9
-  # Taxonomía reads
+  # Read-level taxonomy
   - kraken2>=2.1.3
   - bracken>=3.0
   - kaiju>=1.10

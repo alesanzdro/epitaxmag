@@ -1,10 +1,10 @@
 #!/bin/bash
-# Clasificacion taxonomica de MAGs con Sourmash (alternativa ligera a GTDB-Tk)
-# Uso: bash bin/run_sourmash_classify.sh results/260226_EPIM232 [threads]
+# Taxonomic classification of MAGs with Sourmash (lightweight GTDB-Tk alternative)
+# Usage: bash bin/run_sourmash_classify.sh results/260226_EPIM232 [threads]
 
 set -euo pipefail
 
-RESULTS="${1:?Uso: bash bin/run_sourmash_classify.sh results/<run>}"
+RESULTS="${1:?Usage: bash bin/run_sourmash_classify.sh results/<run>}"
 THREADS="${2:-8}"
 DB_ROOT="${DB_ROOT:-/home/asanzc/jobs/nanometa/resources}"
 
@@ -24,13 +24,13 @@ echo ""
 
 # Check DB exists
 if [ ! -f "$SOURMASH_DB" ]; then
-    echo "ERROR: Sourmash DB no encontrada: $SOURMASH_DB"
-    echo "Descargar: wget https://farm.cse.ucdavis.edu/~ctbrown/sourmash-db.new/gtdb-rs226/gtdb-reps-rs226-k31.dna.zip"
+    echo "ERROR: Sourmash DB not found: $SOURMASH_DB"
+    echo "Download: wget https://farm.cse.ucdavis.edu/~ctbrown/sourmash-db.new/gtdb-rs226/gtdb-reps-rs226-k31.dna.zip"
     exit 1
 fi
 
 if [ ! -f "$LINEAGES" ]; then
-    echo "ERROR: Lineages CSV no encontrado: $LINEAGES"
+    echo "ERROR: Lineages CSV not found: $LINEAGES"
     exit 1
 fi
 
@@ -47,7 +47,7 @@ for sample_dir in "$RESULTS"/21_binning_dastool/*/; do
 
     echo "  $sample: $n_bins MAGs..."
 
-    # 1. Sketch cada MAG
+    # 1. Sketch each MAG
     for fa in "$bins_dir"/*.fa; do
         bin_name=$(basename "$fa" .fa)
         sourmash sketch dna -p k=31,scaled=1000 "$fa" \
@@ -55,7 +55,7 @@ for sample_dir in "$RESULTS"/21_binning_dastool/*/; do
             --name "${bin_name}" 2>/dev/null || true
     done
 
-    # 2. Gather contra GTDB
+    # 2. Gather against GTDB
     for sig in "$out"/sketches/*.sig; do
         bin_name=$(basename "$sig" .sig)
         sourmash gather "$sig" "$SOURMASH_DB" \
@@ -64,11 +64,11 @@ for sample_dir in "$RESULTS"/21_binning_dastool/*/; do
             -k 31 2>/dev/null || true
     done
 
-    # 3. Concatenar gather results
+    # 3. Concatenate gather results
     head -1 "$out"/gather/*.gather.csv 2>/dev/null | head -1 > "$out/gather_all.csv"
     tail -q -n +2 "$out"/gather/*.gather.csv >> "$out/gather_all.csv" 2>/dev/null || true
 
-    # 4. Taxonomia
+    # 4. Taxonomy
     if [ -s "$out/gather_all.csv" ]; then
         sourmash tax genome \
             -g "$out/gather_all.csv" \
@@ -77,7 +77,7 @@ for sample_dir in "$RESULTS"/21_binning_dastool/*/; do
             -o "$out/${sample}_sourmash_tax.csv" 2>/dev/null || true
     fi
 
-    # 5. Generar TSV compatible con formato GTDB-Tk
+    # 5. Emit a TSV compatible with the GTDB-Tk format
     echo -e "user_genome\tclassification\tcontainment" > "$out/${sample}_taxonomy.tsv"
     if [ -f "$out/${sample}_sourmash_tax.csv" ]; then
         tail -n +2 "$out/${sample}_sourmash_tax.csv" | while IFS=',' read -r qname status rank fraction lineage rest; do
@@ -86,13 +86,13 @@ for sample_dir in "$RESULTS"/21_binning_dastool/*/; do
     fi
 
     n_classified=$(tail -n +2 "$out/${sample}_taxonomy.tsv" | wc -l)
-    echo "  $sample: $n_classified MAGs clasificados"
+    echo "  $sample: $n_classified MAGs classified"
 done
 
 echo ""
-echo "  Completado. Resultados en: $OUTDIR"
+echo "  Done. Results in: $OUTDIR"
 echo ""
-echo "  Para generar el reporte con sourmash:"
+echo "  To generate the sourmash report:"
 echo "  python3 scripts/generate_mag_report_v2.py \\"
 echo "      --results-dir $RESULTS --run-name $(basename $RESULTS) \\"
 echo "      --branding branding/ --output $RESULTS/32_reports/report.html"

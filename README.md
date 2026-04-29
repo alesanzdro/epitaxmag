@@ -20,124 +20,145 @@ EpiTaxMAG processes Oxford Nanopore long reads from raw FASTQ to interactive epi
 
 ---
 
-## Quick Start
+## Quickstart
 
-```bash
-# Clone and run (databases download automatically on first run)
-git clone https://github.com/asanzcarb/epitaxmag.git
-cd epitaxmag
-nextflow run main.nf --input /path/to/fastqs -profile gru
-```
-
----
-
-## Installation & Local Configuration
+This is a step-by-step recipe for a fresh server. Replace `jane` and
+`BIOLAB` everywhere with your own user and project name.
 
 ### 1. Requirements
 
-- **Nextflow** >= 23.04 ([install](https://www.nextflow.io/docs/latest/install.html))
-- **Conda/Mamba** or **Singularity/Apptainer**
-- **Disk space**: ~170 GB (TAX only) or ~360 GB (TAX + MAG) for databases
+- **Nextflow** ≥ 23.04 ([install](https://www.nextflow.io/docs/latest/install.html))
+- **Conda** (Miniconda or Miniforge) — or Singularity/Apptainer
+- **Disk**: ~170 GB for TAX only, ~360 GB for TAX + MAG (auto-downloaded on first run)
 - **RAM**:
-  - High-memory server (>= 200 GB): Full pipeline with GTDB-Tk
-  - Medium server (64 GB): Use `--skip_gtdbtk` (Sourmash as lightweight alternative)
-  - Desktop (56 GB): Use `--skip_gtdbtk`
+  - ≥ 200 GB → full pipeline including GTDB-Tk
+  - 58–64 GB → run with `--skip_gtdbtk` (uses Sourmash instead, ~5 GB RAM)
 
-### 2. Clone the repository
+### 2. Set up your folder layout
+
+The recommended layout has three sibling directories under one project root:
+
+```
+/home/jane/BIOLAB/
+├── DATA/         ← input FASTQs, one folder per sequencing run
+├── RESULTS/      ← pipeline output, one folder per run
+└── DATABASES/    ← shared database root (auto-populated on first run)
+```
+
+Create them:
 
 ```bash
-cd /home/user/projects
+mkdir -p /home/jane/BIOLAB/{DATA,RESULTS,DATABASES}
+```
+
+### 3. Clone the pipeline
+
+```bash
+cd /home/jane/BIOLAB
 git clone https://github.com/asanzcarb/epitaxmag.git
 cd epitaxmag
 ```
 
-### 3. Create your local configuration
+### 4. Create your local config
 
-The file `conf/local.config` contains server-specific settings (database paths, proxy, Singularity bind mounts). It is **not tracked by git** — each user creates their own from the template:
+`conf/local.config` holds machine-specific paths and is **gitignored**. Copy
+the template and edit two lines:
 
 ```bash
 cp conf/local.config.example conf/local.config
 nano conf/local.config
 ```
 
-**What to edit in `conf/local.config`:**
-
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `params.db_root` | Root directory for all databases. The pipeline downloads them here automatically on first run (~360 GB). | `"/data/databases"` |
-| `params.fastqscreen_conf` | Path to FastQ Screen config (auto-generated if not set). | Leave default |
-| `params.epitaxmag_tools_sif` | Path to custom Singularity image (only if using `-profile singularity`). | `"${projectDir}/containers/epitaxmag-tools-1.0.0.sif"` |
-| `params.singularity_bind` | Extra bind paths for Singularity containers (directories outside `$HOME`). | `"--bind /data --bind /scratch"` |
-| `env.http_proxy` | HTTP proxy (if your network requires it). | `"http://proxy.example.com:8080"` |
-
-**Minimal `conf/local.config` example:**
+Set:
 
 ```groovy
-// Just set the database path — everything else has sensible defaults
-params.db_root = "/data/databases"
+// Where the pipeline downloads/reads databases
+params.db_root = "/home/jane/BIOLAB/DATABASES"
+
+// How your shell finds the `conda` command
+process.beforeScript = 'source /home/jane/miniconda3/etc/profile.d/conda.sh'
 ```
 
-### 4. First run (downloads databases automatically)
+If your network requires a proxy, also uncomment:
 
-On the first execution, the pipeline will download all required databases to `params.db_root`. This takes 1-3 hours depending on bandwidth. Subsequent runs reuse the cached databases.
-
-```bash
-# TAX only (taxonomic profiling)
-nextflow run main.nf --input /path/to/fastqs -profile gru
-
-# TAX + MAG (full pipeline)
-nextflow run main.nf --input /path/to/fastqs --run_assembly -profile gru
+```groovy
+env.http_proxy  = 'http://proxy.example.com:8080'
+env.https_proxy = 'http://proxy.example.com:8080'
 ```
 
-If databases are already downloaded, skip the setup:
-```bash
-nextflow run main.nf --input /path/to/fastqs --skip_db_setup -profile gru
+### 5. Drop your FASTQs into a per-run folder under DATA/
+
+```
+/home/jane/BIOLAB/DATA/RUN001_TEST/
+├── sample_A.fastq.gz
+├── sample_B.fastq.gz
+└── sample_C.fastq.gz
 ```
 
----
+Files containing `unclassified` are skipped automatically (Nanopore default).
 
-## Running the Pipeline
+### 6. Run the pipeline
 
-### Option A: From local clone (recommended for development)
+**TAX only** (taxonomic profiling, ~3–4 h for ~7 samples):
 
 ```bash
-cd /path/to/epitaxmag
-
 nextflow run main.nf \
-    --input /path/to/fastqs \
+    --input  /home/jane/BIOLAB/DATA/RUN001_TEST \
+    --outdir /home/jane/BIOLAB/RESULTS/RUN001_TEST \
+    -profile gru
+```
+
+**TAX + MAG** (full pipeline including assembly + binning, ~12–24 h):
+
+```bash
+nextflow run main.nf \
+    --input  /home/jane/BIOLAB/DATA/RUN001_TEST \
+    --outdir /home/jane/BIOLAB/RESULTS/RUN001_TEST \
     --run_assembly \
     -profile gru
 ```
 
-### Option B: Directly from GitHub (no clone needed)
+Pick the profile that matches your machine: `gru` (48 cores / 240 GB RAM),
+`censalud` (24 cores / 58 GB RAM, NVMe), `pc` (20 cores / 52 GB RAM).
+Add `--skip_gtdbtk` on machines with less than ~64 GB RAM.
 
-```bash
-nextflow run asanzcarb/epitaxmag \
-    --input /path/to/fastqs \
-    --db_root /path/to/databases \
-    --run_assembly \
-    -profile censalud
-```
+The first run downloads ~170–360 GB of databases into your `DATABASES/`
+folder. Every subsequent run reuses that cache.
 
-Nextflow downloads the pipeline from GitHub automatically.
+### 7. If something fails — resume
 
-### Option C: Low-memory server (< 64 GB RAM)
-
-Use `--skip_gtdbtk` to replace GTDB-Tk (~120 GB RAM) with Sourmash (~5 GB RAM):
+Don't relaunch from scratch. Just append `-resume` and Nextflow picks up
+where it left off:
 
 ```bash
 nextflow run main.nf \
-    --input /path/to/fastqs \
+    --input  /home/jane/BIOLAB/DATA/RUN001_TEST \
+    --outdir /home/jane/BIOLAB/RESULTS/RUN001_TEST \
     --run_assembly \
-    --skip_gtdbtk \
-    -profile censalud
+    -profile gru \
+    -resume
 ```
 
-### Show all available options
+### 8. Practical tips
 
-```bash
-nextflow run main.nf --help
-```
+- **Long runs**: launch inside `tmux` or `screen` so an SSH disconnect doesn't
+  kill the run. `tmux new -s epitax`, then detach with `Ctrl-b d`.
+- **Watch progress**: `tail -f .nextflow.log` from another terminal.
+- **DB growth**: `watch -n 30 'du -sh /home/jane/BIOLAB/DATABASES/*/'`.
+- **Run from GitHub** without cloning (Nextflow pulls automatically):
+  ```bash
+  nextflow run asanzcarb/epitaxmag \
+      --input  /home/jane/BIOLAB/DATA/RUN001_TEST \
+      --outdir /home/jane/BIOLAB/RESULTS/RUN001_TEST \
+      --db_root /home/jane/BIOLAB/DATABASES \
+      -profile gru
+  ```
+- **Singularity instead of conda**: combine profiles and point to your SIF in
+  `conf/local.config`:
+  ```bash
+  nextflow run main.nf --input ... -profile gru,singularity
+  ```
+- **Show every option**: `nextflow run main.nf --help`.
 
 ---
 

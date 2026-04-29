@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """
 generate_screening_charts.py
-Genera graficos de screening para EpiTax y EpiTaxMAG:
-  1. FastQ Screen 100% horizontal stacked bar (estilo MultiQC/Highcharts)
-  2. Sylph target organisms heatmap dual (abundancia + cobertura)
-     con toggle genero/especie
+Generate screening charts for EpiTax and EpiTaxMAG:
+  1. FastQ Screen 100% horizontal stacked bar (MultiQC/Highcharts style)
+  2. Sylph target-organism dual heatmap (abundance + coverage)
+     with a genus/species toggle
 
-Importable como modulo o ejecutable standalone.
+Importable as a module or runnable as a standalone script.
 """
 
 import argparse, os, warnings
@@ -17,7 +17,7 @@ import plotly
 
 warnings.filterwarnings('ignore')
 
-# 30 colores unicos (sin repetir) para FastQ Screen genomes
+# 30 unique colors (no repeats) for FastQ Screen genomes
 HC_PALETTE = [
     '#7cb5ec', '#434348', '#90ed7d', '#f7a35c', '#8085e9',
     '#f15c80', '#e4d354', '#2b908f', '#f45b5b', '#91e8e1',
@@ -159,7 +159,7 @@ def build_fastqscreen_100pct(df):
 
     fig.update_layout(
         barmode='stack',
-        title=dict(text='FastQ Screen — Distribucion de Reads Raw (%)', font=dict(size=14, color='#333')),
+        title=dict(text='FastQ Screen — Raw Read Distribution (%)', font=dict(size=14, color='#333')),
         xaxis=dict(title='Percentage [%]', range=[0, 100], dtick=20,
                    showgrid=True, gridcolor='#eee', gridwidth=1),
         yaxis=dict(autorange='reversed', tickfont=dict(size=9)),
@@ -262,9 +262,9 @@ def build_sylph_dual_heatmap(df, target_list):
         colorscale=[[0,'#FFFFFF'],[0.01,'#FFF3E0'],[0.1,'#FF9800'],[0.5,'#E65100'],[1,'#BF360C']],
         text=[[f'{v:.2f}%' if v>0.01 else '' for v in r] for r in pivot_g_abund.values],
         texttemplate='%{text}', textfont_size=8,
-        hovertemplate='%{y} en %{x}: %{z:.3f}%<extra>Abundancia</extra>',
+        hovertemplate='%{y} in %{x}: %{z:.3f}%<extra>Abundance</extra>',
         colorbar=dict(title=dict(text='Abund. %', side='right'), x=1.02),
-        visible=True, name='Genus - Abundancia',
+        visible=True, name='Genus - Abundance',
     ))
 
     # Trace 1: Genus Coverage (HIDDEN)
@@ -273,9 +273,9 @@ def build_sylph_dual_heatmap(df, target_list):
         colorscale=[[0,'#FFFFFF'],[0.001,'#E3F2FD'],[0.01,'#42A5F5'],[0.1,'#1565C0'],[1,'#0D47A1']],
         text=[[f'{v:.2f}x' if v>0.001 else '' for v in r] for r in pivot_g_cov.values],
         texttemplate='%{text}', textfont_size=8,
-        hovertemplate='%{y} en %{x}: %{z:.3f}x<extra>Cobertura</extra>',
-        colorbar=dict(title=dict(text='Cob. (x)', side='right'), x=1.02),
-        visible=False, name='Genus - Cobertura',
+        hovertemplate='%{y} in %{x}: %{z:.3f}x<extra>Coverage</extra>',
+        colorbar=dict(title=dict(text='Cov. (x)', side='right'), x=1.02),
+        visible=False, name='Genus - Coverage',
     ))
 
     # Trace 2: Species Abundance (HIDDEN)
@@ -284,9 +284,9 @@ def build_sylph_dual_heatmap(df, target_list):
         colorscale=[[0,'#FFFFFF'],[0.01,'#FFF3E0'],[0.1,'#FF9800'],[0.5,'#E65100'],[1,'#BF360C']],
         text=[[f'{v:.2f}%' if v>0.01 else '' for v in r] for r in pivot_s_abund.values],
         texttemplate='%{text}', textfont_size=7,
-        hovertemplate='%{y} en %{x}: %{z:.3f}%<extra>Abundancia</extra>',
+        hovertemplate='%{y} in %{x}: %{z:.3f}%<extra>Abundance</extra>',
         colorbar=dict(title=dict(text='Abund. %', side='right'), x=1.02),
-        visible=False, name='Species - Abundancia',
+        visible=False, name='Species - Abundance',
     ))
 
     # Trace 3: Species Coverage (HIDDEN)
@@ -295,9 +295,9 @@ def build_sylph_dual_heatmap(df, target_list):
         colorscale=[[0,'#FFFFFF'],[0.001,'#E3F2FD'],[0.01,'#42A5F5'],[0.1,'#1565C0'],[1,'#0D47A1']],
         text=[[f'{v:.2f}x' if v>0.001 else '' for v in r] for r in pivot_s_cov.values],
         texttemplate='%{text}', textfont_size=7,
-        hovertemplate='%{y} en %{x}: %{z:.3f}x<extra>Cobertura</extra>',
-        colorbar=dict(title=dict(text='Cob. (x)', side='right'), x=1.02),
-        visible=False, name='Species - Cobertura',
+        hovertemplate='%{y} in %{x}: %{z:.3f}x<extra>Coverage</extra>',
+        colorbar=dict(title=dict(text='Cov. (x)', side='right'), x=1.02),
+        visible=False, name='Species - Coverage',
     ))
 
     # Buttons: 4 options
@@ -312,29 +312,29 @@ def build_sylph_dual_heatmap(df, target_list):
                 type='buttons', direction='right',
                 x=0.0, y=1.18, xanchor='left', yanchor='top',
                 buttons=[
-                    dict(label='Genero: Abundancia',
+                    dict(label='Genus: Abundance',
                          method='update',
                          args=[{'visible': [True, False, False, False]},
-                               {'title.text': 'Alerta Temprana — Abundancia por Genero (Sylph)'}]),
-                    dict(label='Genero: Cobertura',
+                               {'title.text': 'Early Warning — Abundance by Genus (Sylph)'}]),
+                    dict(label='Genus: Coverage',
                          method='update',
                          args=[{'visible': [False, True, False, False]},
-                               {'title.text': 'Alerta Temprana — Cobertura Efectiva por Genero (Sylph)'}]),
-                    dict(label='Especie: Abundancia',
+                               {'title.text': 'Early Warning — Effective Coverage by Genus (Sylph)'}]),
+                    dict(label='Species: Abundance',
                          method='update',
                          args=[{'visible': [False, False, True, False]},
-                               {'title.text': 'Alerta Temprana — Abundancia por Especie (Sylph)'}]),
-                    dict(label='Especie: Cobertura',
+                               {'title.text': 'Early Warning — Abundance by Species (Sylph)'}]),
+                    dict(label='Species: Coverage',
                          method='update',
                          args=[{'visible': [False, False, False, True]},
-                               {'title.text': 'Alerta Temprana — Cobertura Efectiva por Especie (Sylph)'}]),
+                               {'title.text': 'Early Warning — Effective Coverage by Species (Sylph)'}]),
                 ],
                 font=dict(size=10),
                 bgcolor='#f0f4f7',
                 bordercolor='#2C5F8A',
             )
         ],
-        title=dict(text='Alerta Temprana — Abundancia por Genero (Sylph)',
+        title=dict(text='Early Warning — Abundance by Genus (Sylph)',
                    font=dict(size=14, color='#2C5F8A')),
         height=chart_height,
         margin=dict(l=200, r=100, t=120, b=80),
@@ -355,11 +355,11 @@ def build_html(fqs_chart, sylph_chart):
 
     def to_div(fig):
         if fig is None:
-            return '<p style="color:#999;font-style:italic">Sin datos disponibles.</p>'
+            return '<p style="color:#999;font-style:italic">No data available.</p>'
         return fig.to_html(full_html=False, include_plotlyjs=False)
 
     return f"""<!DOCTYPE html><html><head>
-    <meta charset="UTF-8"><title>Screening Organismos de Inter&eacute;s</title>
+    <meta charset="UTF-8"><title>Screening — Organisms of Interest</title>
     <script>{plotly_js}</script>
     <style>
     body {{ font-family: Helvetica, Arial, sans-serif; margin: 2rem; background: #f8f9fa; color: #333; }}
@@ -371,9 +371,9 @@ def build_html(fqs_chart, sylph_chart):
     </style></head><body>
 
     <div class="section">
-        <div class="section-header">FastQ Screen — Distribucion de Reads Raw</div>
+        <div class="section-header">FastQ Screen — Raw Read Distribution</div>
         <div class="section-body">
-            <p>Barras apiladas al 100% mostrando la fraccion de reads exclusivamente mapeados a cada genoma de referencia.
+            <p>100%-stacked bars showing the fraction of reads mapped exclusively to each reference genome.
             Cada lectura se contabiliza una sola vez (categorias mutuamente excluyentes).
             <strong>Multiple Genomes</strong>: reads que mapean a mas de un genoma.
             <strong>No hits</strong>: reads sin mapeo a ningun genoma del panel.</p>
@@ -382,16 +382,16 @@ def build_html(fqs_chart, sylph_chart):
     </div>
 
     <div class="section">
-        <div class="section-header">Alerta Temprana — Organismos de Inter&eacute;s (Sylph)</div>
+        <div class="section-header">Early Warning — Organisms of Interest (Sylph)</div>
         <div class="section-body">
-            <p>Deteccion de organismos del panel de vigilancia en lecturas filtradas (Sylph).
-            Usa los botones para alternar entre <strong>Genero/Especie</strong> y <strong>Abundancia/Cobertura</strong>.
-            La abundancia (%) indica la fraccion del metagenoma. La cobertura efectiva (x) indica la profundidad:
-            &ge;1x = deteccion fiable, &ge;30x = ensamblable.</p>
+            <p>Detection of surveillance-panel organisms in the filtered reads (Sylph).
+            Use the buttons to toggle between <strong>Genus/Species</strong> and <strong>Abundance/Coverage</strong>.
+            Abundance (%) is the metagenome fraction. Effective coverage (x) is the read depth:
+            &ge;1x = reliable detection, &ge;30x = assembly-ready.</p>
             {to_div(sylph_chart)}
-            <p class="note">Lista de organismos configurable en nextflow.config (params.target_organisms).
-            A nivel de genero se agregan (suma abundancia, max cobertura).
-            A nivel de especie se muestran las top 30 especies detectadas.</p>
+            <p class="note">The organism list is configurable via nextflow.config (params.target_organisms).
+            At genus level results are aggregated (sum of abundance, max coverage).
+            At species level the top 30 detected species are shown.</p>
         </div>
     </div>
 
@@ -403,10 +403,10 @@ def build_html(fqs_chart, sylph_chart):
 # ═══════════════════════════════════════════════════════════════
 
 def main():
-    parser = argparse.ArgumentParser(description='Genera graficos de screening')
-    parser.add_argument('--results-dir', required=True, help='Directorio de resultados')
+    parser = argparse.ArgumentParser(description='Generate screening charts')
+    parser.add_argument('--results-dir', required=True, help='Results directory')
     parser.add_argument('--sylph', default='', help='sylph_profile_all.tsv (override)')
-    parser.add_argument('--target-organisms', default='', help='Lista separada por comas')
+    parser.add_argument('--target-organisms', default='', help='Comma-separated list')
     parser.add_argument('--output', required=True, help='Output HTML')
     args = parser.parse_args()
 

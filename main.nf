@@ -2,23 +2,23 @@
 
 /*
  * ══════════════════════════════════════════════════════════════════
- *  EpiTaxMAG — Pipeline Metagenómica Nanopore
- *  Fase TAX (EpiTax): QC · Trimming · Filtrado · Perfilado taxonómico
- *  Fase MAG (EpiTaxMAG): Ensamblaje · Binning · Anotación · AMR
+ *  EpiTaxMAG — Nanopore metagenomics pipeline
+ *  TAX phase  (EpiTax):    QC · trim · filter · taxonomic profiling
+ *  MAG phase  (EpiTaxMAG): assembly · binning · annotation · AMR
  *  EPIMOL — FISABIO
  * ══════════════════════════════════════════════════════════════════
  *
- *  USO:
- *    # Solo perfilado taxonómico (EpiTax)
+ *  USAGE:
+ *    # Taxonomic profiling only (EpiTax)
  *    nextflow run main.nf --input data/260225_EPIM230 -profile gru
  *
- *    # Flujo completo: taxonómico + ensamblaje MAGs (EpiTaxMAG)
+ *    # Full pipeline: profiling + MAG recovery (EpiTaxMAG)
  *    nextflow run main.nf --input data/260225_EPIM230 -profile gru --run_assembly
  *
- *    # Solo ensamblaje MAGs (requiere reads filtrados previos)
+ *    # MAG only (requires previously filtered reads)
  *    nextflow run main.nf --input data/260225_EPIM230 -profile gru --run_tax false --run_assembly
  *
- *    # Resume tras interrupción
+ *    # Resume after interruption
  *    nextflow run main.nf --input data/260225_EPIM230 -profile gru -resume
  */
 
@@ -35,106 +35,102 @@ include { MAG as EPITAXMAG_MAG } from './workflow/mag/main'
 
 
 // ══════════════════════════════════════════════════════════════════
-// AYUDA
+// HELP
 // ══════════════════════════════════════════════════════════════════
 
 if (params.help) {
     log.info """
-    EpiTaxMAG — Pipeline Metagenómica Nanopore
+    EpiTaxMAG — Nanopore metagenomics pipeline
     EPIMOL — FISABIO
     ──────────────────────────────────────────
 
-    USO:
-      nextflow run main.nf --input <dir_fastqs> -profile <profile> [opciones]
+    USAGE:
+      nextflow run main.nf --input <fastq_dir> -profile <profile> [options]
 
-    OPCIONES PRINCIPALES:
-      --input            Directorio con ficheros .fastq.gz (REQUERIDO)
-      --db_root          Raíz de bases de datos [default: ${projectDir}/databases]
-      --outdir           Directorio de salida [default: results/<run_name>]
-      --run_name         Nombre del run [default: nombre del dir de input]
+    MAIN OPTIONS:
+      --input            Directory with .fastq.gz files (REQUIRED)
+      --db_root          Database root [default: ${projectDir}/databases]
+      --outdir           Output directory [default: results/<run_name>]
+      --run_name         Run name [default: input directory name]
 
-    FASES:
-      --run_tax          Ejecutar fase TAX [default: true]
-      --run_assembly     Ejecutar fase MAG [default: false]
+    PHASES:
+      --run_tax          Run TAX phase [default: true]
+      --run_assembly     Run MAG phase [default: false]
 
-    FILTRADO:
-      --min_quality      Calidad mínima Chopper [default: 10]
-      --min_length       Longitud mínima (bp) [default: 1000]
-      --host_genome      Genoma del huésped para HOST_REMOVAL (.fasta)
-                         Si no se indica, el paso se omite
+    READ FILTERING:
+      --min_quality      Minimum Chopper quality [default: 10]
+      --min_length       Minimum read length (bp) [default: 1000]
+      --host_genome      Host reference genome (.fasta) for HOST_REMOVAL.
+                         If omitted, host depletion is skipped.
 
-    TAXONOMÍA:
-      --kraken2_confidence  Confianza Kraken2 [default: 0.1]
-      --genome_size_mb      Tamaño genoma promedio Mb [default: 4.5]
-      --min_coverage_mag    Cobertura mínima MAGs [default: 30]
+    TAXONOMY:
+      --kraken2_confidence  Kraken2 confidence [default: 0.1]
+      --genome_size_mb      Average genome size in Mb [default: 4.5]
+      --min_coverage_mag    Minimum theoretical coverage for MAGs [default: 30]
 
-    VERIFICACIÓN FENOTÍPICA (minimap2 vs type-strains):
-      --phenotypic_targets  TSV con organismos objetivo + accesiones NCBI
-                            (columnas: organism, accession) [default: activado]
-                            Editar assets/phenotypic_targets/target_organisms.tsv
-                            para añadir/quitar organismos.
-                            Para desactivar: --phenotypic_targets false
+    PHENOTYPIC VERIFICATION (minimap2 vs type-strains):
+      --phenotypic_targets  TSV with target organisms + NCBI accessions
+                            (columns: organism, accession). Enabled by default.
+                            Edit assets/phenotypic_targets/target_organisms.tsv
+                            to add/remove organisms.
+                            To disable: --phenotypic_targets false
 
     FASTQ SCREEN:
-      --fastqscreen_conf    Config de FastQ Screen (.conf)
+      --fastqscreen_conf    FastQ Screen config (.conf)
 
-    BASES DE DATOS:
-      --db_root             Raiz de bases de datos [default: databases/]
-      --skip_db_setup       No descargar DBs automaticamente [default: false]
+    DATABASES:
+      --db_root             Database root [default: databases/]
+      --skip_db_setup       Skip automatic DB download [default: false]
 
-    OPCIONES MAG:
-      --skip_gtdbtk         Saltar GTDB-Tk (equipos con <64 GB RAM) [default: false]
-      --assemblies_dir      Reutilizar ensamblajes existentes (salta MetaFlye)
-      --filtered_dir        Reutilizar reads filtrados (salta TAX)
+    MAG OPTIONS:
+      --skip_gtdbtk         Skip GTDB-Tk (machines with <50 GB RAM, uses Sourmash)
+      --assemblies_dir      Reuse existing assemblies (skips MetaFlye)
+      --filtered_dir        Reuse pre-filtered reads (skips TAX)
 
-    PROFILES (obligatorio elegir uno):
-      -profile gru          Servidor GRU: 48 threads, 200 GB RAM
+    PROFILES (one is required):
+      -profile gru          Server: 48 threads, 200 GB RAM
       -profile pc           Desktop: 20 threads, 56 GB RAM
       -profile censalud     CenSalud: 24 threads, 60 GB RAM (i7-14700)
-      -profile singularity  Usar contenedores Singularity (combinable)
+      -profile singularity  Use Singularity containers (combinable)
 
-    EJEMPLOS:
-      # Perfilado taxonómico con conda (por defecto)
+    EXAMPLES:
+      # Taxonomic profiling with conda (default)
       nextflow run main.nf --input data/EPIM230 -profile censalud
 
-      # Con Singularity
+      # With Singularity
       nextflow run main.nf --input data/EPIM230 -profile censalud,singularity
 
-      # Con eliminación de host humano
+      # With human host removal
       nextflow run main.nf --input data/EPIM230 -profile gru \\
           --host_genome /path/to/GRCh38.fna
 
-      # Especificar bases de datos
+      # Custom database root
       nextflow run main.nf --input data/EPIM230 -profile censalud \\
-          --db_root /disco/databases
+          --db_root /disk/databases
 
-      # Sin verificación fenotípica (desactivar minimap2 type-strains)
+      # Disable phenotypic verification
       nextflow run main.nf --input data/EPIM230 -profile gru \\
           --phenotypic_targets false
 
-      # Resume tras interrupción
+      # Resume after interruption
       nextflow run main.nf --input data/EPIM230 -profile censalud -resume
-
-    SETUP INICIAL (bases de datos):
-      bash bin/setup_databases.sh --db-root /ruta/databases
-      bash bin/setup_databases.sh --db-root /ruta/databases --check
     """.stripIndent()
     System.exit(0)
 }
 
 
 // ══════════════════════════════════════════════════════════════════
-// VALIDACIÓN
+// VALIDATION
 // ══════════════════════════════════════════════════════════════════
 
 if (!params.input) {
-    error "ERROR: Falta --input. Uso: nextflow run main.nf --input /ruta/a/fastqs -profile gru|pc"
+    error "ERROR: --input is required. Usage: nextflow run main.nf --input /path/to/fastqs -profile <gru|pc|censalud>"
 }
 
 def run_name    = params.run_name ?: file(params.input).name
 def pipeline_id = params.run_assembly ? 'EpiTaxMAG' : 'EpiTax'
 
-// ── Validar bases de datos TAX ──────────────────────────────────
+// ── TAX database checks (warn, do not abort — auto-setup will run) ─
 def db_missing = []
 if (params.run_tax) {
     def db = params.db_root
@@ -151,18 +147,20 @@ if (params.run_tax) {
         }
     }
 }
-if (db_missing) {
+if (db_missing && params.skip_db_setup) {
     log.warn """
     ┌─────────────────────────────────────────────────────────────┐
-    │  BASES DE DATOS NO ENCONTRADAS                              │
+    │  MISSING DATABASES                                          │
     └─────────────────────────────────────────────────────────────┘
     ${db_missing.join('\n    ')}
 
-    Solución: ejecutar el setup de bases de datos:
-      bash bin/setup_databases.sh --db-root ${params.db_root}
-
-    O especificar una ruta existente:
-      nextflow run main.nf --db_root /ruta/a/databases ...
+    --skip_db_setup is enabled, so no automatic download will be performed.
+    Either remove --skip_db_setup, or download the missing files manually.
+    """.stripIndent()
+} else if (db_missing) {
+    log.info """
+    Missing databases will be auto-downloaded by SETUP_DB:
+    ${db_missing.join('\n    ')}
     """.stripIndent()
 }
 
@@ -174,19 +172,19 @@ log.info """
    FISABIO - EPIMOL
   -----------------------------------------
 
-  Run:       ${run_name}
-  Input:     ${params.input}
-  Output:    ${params.outdir ?: "${projectDir}/results/${run_name}"}
-  DB Root:   ${params.db_root}
-  Fase TAX:  ${params.run_tax ? 'SI' : 'NO'}
-  Fase MAG:  ${params.run_assembly ? 'SI' : 'NO'}
-  Filtros:   Q>=${params.min_quality}, len>=${params.min_length}bp
-  MAG cov:   >=${params.min_coverage_mag}x (genoma ${params.genome_size_mb} Mb)
+  Run:        ${run_name}
+  Input:      ${params.input}
+  Output:     ${params.outdir ?: "${projectDir}/results/${run_name}"}
+  DB Root:    ${params.db_root}
+  TAX phase:  ${params.run_tax ? 'YES' : 'NO'}
+  MAG phase:  ${params.run_assembly ? 'YES' : 'NO'}
+  Filters:    Q>=${params.min_quality}, len>=${params.min_length}bp
+  MAG cov:    >=${params.min_coverage_mag}x (genome ${params.genome_size_mb} Mb)
 """.stripIndent()
 
 
 // ══════════════════════════════════════════════════════════════════
-// CANAL DE ENTRADA — descubrir muestras (excluye unclassified)
+// INPUT CHANNEL — discover samples (skips files matching 'unclassified')
 // ══════════════════════════════════════════════════════════════════
 
 Channel
@@ -200,36 +198,49 @@ Channel
 
 
 // ══════════════════════════════════════════════════════════════════
-// WORKFLOW PRINCIPAL
+// MAIN WORKFLOW
 // ══════════════════════════════════════════════════════════════════
 
 workflow {
 
-    // ── Setup: Descarga automatica de bases de datos ─────────────
+    // ── Setup: automatic database download ──────────────────────
+    // Emits a `ready` channel once every required database is in place.
+    // TAX and MAG gate on this channel so no taxonomy/AMR process starts
+    // before its database has finished downloading.
     if (!params.skip_db_setup) {
         EPITAXMAG_SETUP()
+        ch_setup_ready = EPITAXMAG_SETUP.out.ready
+    } else {
+        ch_setup_ready = Channel.value('skip')
     }
 
-    // ── Fase TAX: Perfilado taxonómico (EpiTax) ──────────────────
+    // ── TAX phase: taxonomic profiling (EpiTax) ─────────────────
     if (params.run_tax) {
-        EPITAXMAG_TAX(ch_raw_fastq)
+        // Combine raw FASTQs with the setup ready signal so TAX waits for it
+        ch_tax_input = ch_raw_fastq
+            .combine(ch_setup_ready)
+            .map { sample, fastq, _ready -> tuple(sample, fastq) }
+
+        EPITAXMAG_TAX(ch_tax_input)
     }
 
-    // ── Fase MAG: Ensamblaje + MAGs (EpiTaxMAG) ─────────────────
+    // ── MAG phase: assembly + MAG recovery (EpiTaxMAG) ──────────
     if (params.run_assembly) {
         if (params.run_tax) {
             ch_mag_input = EPITAXMAG_TAX.out.filtered
         } else {
-            // Buscar reads filtrados de un run previo
+            // Reuse filtered reads from a previous run; gate on setup ready
             def rn = params.run_name ?: file(params.input).name
             def od = params.outdir ?: "${projectDir}/results/${rn}"
             def filt_dir = params.filtered_dir ?: "${od}/04_filter_chopper"
 
-            log.info "  MAG: buscando reads filtrados en ${filt_dir}"
+            log.info "  MAG: reading filtered reads from ${filt_dir}"
 
             ch_mag_input = Channel
                 .fromPath("${filt_dir}/*.filtered.fastq.gz", checkIfExists: true)
                 .map { f -> tuple(f.baseName.replaceAll(/\.filtered\.fastq$/, ''), f) }
+                .combine(ch_setup_ready)
+                .map { sample, fastq, _ready -> tuple(sample, fastq) }
         }
 
         EPITAXMAG_MAG(ch_mag_input)
