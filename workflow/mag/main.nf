@@ -1,19 +1,30 @@
 #!/usr/bin/env nextflow
 
 /*
- * EpiTaxMAG — Subworkflow MAG Core
- * MetaFlye + Medaka + QUAST + Binning (MetaBAT2 + SemiBin2) + DAS Tool + CheckM2
+ * EpiTaxMAG — MAG core subworkflow
+ * MetaFlye + Medaka + QUAST + Binning (MetaBAT2 + MaxBin2 + SemiBin2)
+ * + DAS Tool + CheckM2 + GTDB-Tk/Sourmash + AMRFinderPlus + geNomad
+ * + ABRicate + MOB-suite + IntegronFinder + Bakta
  * EPIMOL — FISABIO
  *
- * PIPELINE (8 pasos):
- *  01. MetaFlye  — ensamblaje metagenomico de novo
- *  02. Medaka    — polishing (modelo SUP v5)
- *  03. QUAST     — estadisticas del ensamblaje
- *  04. MAP_READS — mapeo reads vs ensamblaje (cobertura)
- *  05. MetaBAT2  — binning composicion + cobertura
- *  06. SemiBin2  — binning deep learning (long reads)
- *  07. DAS Tool  — refinamiento y consenso de bins
- *  08. CheckM2   — completeness y contamination de MAGs
+ * PIPELINE (17 steps):
+ *  01. MetaFlye  — de novo metagenomic assembly
+ *  02. Medaka    — polishing (SUP v5 model)
+ *  03. QUAST     — assembly statistics
+ *  04. MAP_READS — read-to-assembly mapping (coverage)
+ *  05. MetaBAT2  — composition + coverage binning
+ *  06. MaxBin2   — EM-based binning
+ *  07. SemiBin2  — deep-learning binning (long reads)
+ *  08. DAS Tool  — bin refinement / consensus
+ *  09. CheckM2   — MAG completeness and contamination
+ *  10. GTDB-Tk   — taxonomic classification of MAGs (or SOURMASH_CLASSIFY)
+ *  11. AMRFinderPlus — AMR + virulence + stress in MAGs
+ *  12. geNomad   — plasmid + virus detection on assemblies
+ *  13. ABRicate  — virulence (VFDB) + AMR (CARD) + PlasmidFinder
+ *  14. MOB-suite — plasmid typing
+ *  15. IntegronFinder — integron detection per MAG
+ *  16. Bakta     — functional annotation per MAG
+ *  17. AMR-pathogen integration + final HTML/Excel report
  */
 
 def run_name = params.run_name ?: (params.input ? file(params.input).name : 'unknown')
@@ -21,7 +32,7 @@ def outdir   = params.outdir   ?: "${projectDir}/results/${run_name}"
 
 
 // ======================================================================
-// PASO 01: METAFLYE — ensamblaje metagenomico de novo
+// STEP 01: METAFLYE — de novo metagenomic assembly
 // ======================================================================
 
 process METAFLYE {
@@ -48,7 +59,7 @@ process METAFLYE {
 
 
 // ======================================================================
-// PASO 02: MEDAKA — polishing del ensamblaje
+// STEP 02: MEDAKA — assembly polishing
 // ======================================================================
 
 process MEDAKA {
@@ -63,17 +74,17 @@ process MEDAKA {
 
     script:
     """
-    # 1. Alinear reads al ensamblaje
+    # 1. Align reads to the assembly
     minimap2 -ax map-ont -t ${task.cpus} ${assembly} ${fastq} \
         | samtools sort -@ 4 -o aligned.bam
     samtools index aligned.bam
 
-    # 2. Inferencia con modelo Medaka
+    # 2. Run Medaka neural-network inference
     medaka inference aligned.bam medaka_out \
         --model ${params.medaka_model} \
         --bam_workers 2
 
-    # 3. Generar consenso polished
+    # 3. Build the polished consensus
     medaka sequence medaka_out ${assembly} ${sample}.polished.fasta
 
     # Cleanup
@@ -83,7 +94,7 @@ process MEDAKA {
 
 
 // ======================================================================
-// PASO 03: QUAST — estadisticas del ensamblaje
+// STEP 03: QUAST — assembly statistics
 // ======================================================================
 
 process QUAST {
@@ -109,7 +120,7 @@ process QUAST {
 
 
 // ======================================================================
-// PASO 04: MAP_READS — mapeo reads a ensamblaje para cobertura
+// STEP 04: MAP_READS — map reads to assembly for coverage
 // ======================================================================
 
 process MAP_READS {
@@ -133,7 +144,7 @@ process MAP_READS {
 
 
 // ======================================================================
-// PASO 05: METABAT2 — binning composicion + cobertura
+// STEP 05: METABAT2 — composition + coverage binning
 // ======================================================================
 
 process METABAT2 {
@@ -166,7 +177,7 @@ process METABAT2 {
 
 
 // ======================================================================
-// PASO 06: MAXBIN2 — binning expectation-maximization
+// STEP 06: MAXBIN2 — expectation-maximization binning
 // ======================================================================
 
 process MAXBIN2 {
@@ -199,7 +210,7 @@ process MAXBIN2 {
 
 
 // ======================================================================
-// PASO 07: SEMIBIN2 — binning deep learning (long reads)
+// STEP 07: SEMIBIN2 — deep-learning binning (long reads)
 // ======================================================================
 
 process SEMIBIN2 {
@@ -235,7 +246,7 @@ process SEMIBIN2 {
 
 
 // ======================================================================
-// PASO 07: DAS_TOOL — refinamiento y consenso de bins
+// STEP 08: DAS_TOOL — bin refinement / consensus
 // ======================================================================
 
 process DAS_TOOL {
@@ -251,7 +262,7 @@ process DAS_TOOL {
 
     script:
     """
-    # Generar scaffolds2bin para cada binner
+    # Generate scaffolds2bin for each binner
     mkdir -p s2b
 
     # MetaBAT2 bins (Fasta_to_Contig2Bin genera 4 cols con metabat, cortar a 2)
@@ -325,7 +336,7 @@ process DAS_TOOL {
 
 
 // ======================================================================
-// PASO 08: CHECKM2 — completeness y contamination
+// STEP 09: CHECKM2 — MAG completeness and contamination
 // ======================================================================
 
 process CHECKM2 {
@@ -363,7 +374,7 @@ process CHECKM2 {
 
 
 // ======================================================================
-// PASO 09: GTDB-Tk — clasificacion taxonomica de MAGs
+// STEP 10: GTDB-Tk — taxonomic classification of MAGs
 // ======================================================================
 
 process GTDBTK {
@@ -392,7 +403,7 @@ process GTDBTK {
             --pplacer_cpus 1 \
             --scratch_dir \${TMPDIR:-/tmp}/gtdbtk_${sample}
 
-        # Resumen: extraer clasificaciones
+        # Summary: extract classifications
         cat gtdbtk_results/classify/gtdbtk.*.summary.tsv > ${sample}_taxonomy.tsv 2>/dev/null || true
 
         rm -rf \${TMPDIR:-/tmp}/gtdbtk_${sample}
@@ -406,9 +417,9 @@ process GTDBTK {
 
 
 // ======================================================================
-// PASO 09b: SOURMASH_CLASSIFY — alternativa ligera a GTDB-Tk (<8 GB RAM)
-// Se usa cuando --skip_gtdbtk. Taxonomia GTDB via k-mer sketching.
-// DB necesaria: sourmash GTDB prepared database (~2-5 GB)
+// STEP 10b: SOURMASH_CLASSIFY — lightweight GTDB-Tk alternative (<8 GB RAM)
+// Used when --skip_gtdbtk is set. GTDB taxonomy via k-mer sketching.
+// Required DB: prepared sourmash GTDB database (~2-5 GB)
 // ======================================================================
 
 process SOURMASH_CLASSIFY {
@@ -458,14 +469,14 @@ process SOURMASH_CLASSIFY {
                 -t "${lineages}" \
                 -o tax_annotated 2>/dev/null || true
 
-            # Tambien generar clasificacion por MAG
+            # Also generate per-MAG classification
             sourmash tax genome -g gather_all.csv \
                 -t "${lineages}" \
                 --output-format csv_summary \
                 -o ${sample}_sourmash_tax.csv 2>/dev/null || true
         fi
 
-        # 4. Generar TSV compatible con el formato de GTDB-Tk
+        # 4. Emit a TSV compatible with the GTDB-Tk format
         echo -e "user_genome\\tclassification\\tani\\tcontainment" > ${sample}_taxonomy.tsv
         if [ -f "${sample}_sourmash_tax.csv" ]; then
             # sourmash tax genome output: query_name,status,rank,fraction,lineage,...
@@ -482,7 +493,7 @@ process SOURMASH_CLASSIFY {
 
 
 // ======================================================================
-// PASO 10: AMRFINDERPLUS — deteccion AMR + virulencia en MAGs
+// STEP 11: AMRFINDERPLUS — AMR + virulence detection in MAGs
 // ======================================================================
 
 process AMRFINDERPLUS_MAGS {
@@ -531,7 +542,7 @@ process AMRFINDERPLUS_MAGS {
 
 
 // ======================================================================
-// PASO 11: GENOMAD — deteccion de plasmidos y virus en ensamblajes
+// STEP 12: GENOMAD — plasmid + virus detection on assemblies
 // ======================================================================
 
 process GENOMAD {
@@ -555,17 +566,17 @@ process GENOMAD {
         ${params.db_root}/genomad/genomad_db \
         --threads ${task.cpus}
 
-    # Extraer resumen de plasmidos
+    # Extract plasmid summary
     if [ -f genomad_output/*_summary/*_plasmid_summary.tsv ]; then
         cp genomad_output/*_summary/*_plasmid_summary.tsv ${sample}_plasmid_summary.tsv
     fi
 
-    # Extraer resumen de virus
+    # Extract virus summary
     if [ -f genomad_output/*_summary/*_virus_summary.tsv ]; then
         cp genomad_output/*_summary/*_virus_summary.tsv ${sample}_virus_summary.tsv
     fi
 
-    # Genes en plasmidos (para cruzar con AMR)
+    # Genes on plasmids (used to cross-reference with AMR)
     if [ -f genomad_output/*_summary/*_plasmid_genes.tsv ]; then
         cp genomad_output/*_summary/*_plasmid_genes.tsv ${sample}_plasmid_genes.tsv
     fi
@@ -574,7 +585,7 @@ process GENOMAD {
 
 
 // ======================================================================
-// PASO 12: ABRICATE — virulencia (VFDB) + AMR (CARD) + PlasmidFinder
+// STEP 13: ABRICATE — virulence (VFDB) + AMR (CARD) + PlasmidFinder
 // ======================================================================
 
 process ABRICATE {
@@ -606,7 +617,7 @@ process ABRICATE {
 
 
 // ======================================================================
-// PASO 13: MOBSUITE — tipificacion de plasmidos
+// STEP 14: MOBSUITE — plasmid typing
 // ======================================================================
 
 process MOBSUITE {
@@ -630,7 +641,7 @@ process MOBSUITE {
 
 
 // ======================================================================
-// PASO 14: INTEGRONFINDER — deteccion de integrones en MAGs
+// STEP 15: INTEGRONFINDER — integron detection per MAG
 // ======================================================================
 
 process INTEGRONFINDER {
@@ -654,7 +665,7 @@ process INTEGRONFINDER {
 
 
 // ======================================================================
-// PASO 15: BAKTA — anotacion funcional de MAGs
+// STEP 16: BAKTA — functional annotation per MAG
 // ======================================================================
 
 process BAKTA {
@@ -685,7 +696,7 @@ process BAKTA {
 
 
 // ======================================================================
-// PASO 16: AMR_PATHOGEN_INTEGRATION — cruce AMR + taxonomia + plasmidos
+// STEP 17a: AMR_PATHOGEN_INTEGRATION — combine AMR + taxonomy + plasmids
 // ======================================================================
 
 process AMR_PATHOGEN_INTEGRATION {
@@ -714,7 +725,7 @@ process AMR_PATHOGEN_INTEGRATION {
 
 
 // ======================================================================
-// PASO 17: MAG_REPORT — reporte HTML + Excel final
+// STEP 17b: MAG_REPORT — final HTML + Excel report
 // ======================================================================
 
 process MAG_REPORT {
@@ -750,13 +761,13 @@ process MAG_REPORT {
 workflow MAG {
 
     take:
-    ch_filtered    // tuple(sample, fastq) — reads filtrados de TAX
+    ch_filtered    // tuple(sample, fastq) — reads filtered by TAX
 
     main:
 
-    // -- Ensamblaje (saltable con --assemblies_dir)
+    // -- Assembly (skippable with --assemblies_dir)
     if (params.assemblies_dir) {
-        log.info "  MAG: usando ensamblajes existentes de ${params.assemblies_dir}"
+        log.info "  MAG: reusing existing assemblies from ${params.assemblies_dir}"
         ch_assemblies = Channel
             .fromPath("${params.assemblies_dir}/*/*.assembly.fasta", checkIfExists: true)
             .map { f -> tuple(f.parent.name, f) }
@@ -771,18 +782,18 @@ workflow MAG {
         .map { sample, assembly, fastq -> tuple(sample, assembly, fastq) }
     MEDAKA(ch_medaka_input)
 
-    // -- QC ensamblaje
+    // -- Assembly QC
     ch_quast_assemblies = MEDAKA.out.polished.map { s, a -> a }.collect()
     ch_quast_labels = MEDAKA.out.polished.map { s, a -> s }.collect()
     QUAST(ch_quast_assemblies, ch_quast_labels)
 
-    // -- Mapeo cobertura
+    // -- Coverage mapping
     ch_map_input = MEDAKA.out.polished
         .join(ch_filtered)
         .map { sample, assembly, fastq -> tuple(sample, assembly, fastq) }
     MAP_READS(ch_map_input)
 
-    // -- Binning (3 binners en paralelo)
+    // -- Binning (3 binners in parallel)
     ch_bin_input = MAP_READS.out.assembly
         .join(MAP_READS.out.bam)
         .map { sample, assembly, bam, bai -> tuple(sample, assembly, bam, bai) }
@@ -793,7 +804,7 @@ workflow MAG {
         .map { sample, assembly, fastq -> tuple(sample, assembly, fastq) }
     MAXBIN2(ch_maxbin_input)
 
-    // -- Refinamiento
+    // -- Refinement
     ch_dastool_input = MAP_READS.out.assembly
         .join(METABAT2.out.bins)
         .join(MAXBIN2.out.bins)
@@ -802,31 +813,31 @@ workflow MAG {
             tuple(sample, assembly, metabat, maxbin, semibin) }
     DAS_TOOL(ch_dastool_input)
 
-    // -- QC MAGs
+    // -- MAG QC
     CHECKM2(DAS_TOOL.out.refined_bins)
 
-    // -- Taxonomia (condicional: GTDB-Tk o Sourmash)
-    // GTDB-Tk: >50 GB RAM, alta precision. Sourmash: <8 GB RAM, rapido.
+    // -- Taxonomy (conditional: GTDB-Tk or Sourmash)
+    // GTDB-Tk: >50 GB RAM, high precision. Sourmash: <8 GB RAM, fast.
     if (!params.skip_gtdbtk) {
         GTDBTK(DAS_TOOL.out.refined_bins)
     } else {
-        log.info "  GTDB-Tk saltado. Usando Sourmash como alternativa ligera (<8 GB RAM)."
+        log.info "  GTDB-Tk skipped. Using Sourmash as a lightweight alternative (<8 GB RAM)."
         SOURMASH_CLASSIFY(DAS_TOOL.out.refined_bins)
     }
 
-    // -- AMR en MAGs
+    // -- AMR on MAGs
     AMRFINDERPLUS_MAGS(DAS_TOOL.out.refined_bins)
 
-    // -- Plasmidos y virus (sobre ensamblaje completo)
+    // -- Plasmids and viruses (on the full assembly)
     GENOMAD(MEDAKA.out.polished)
 
-    // -- Fase A: Virulencia + CARD + PlasmidFinder
+    // -- Virulence (VFDB) + AMR (CARD) + PlasmidFinder
     ABRICATE(DAS_TOOL.out.refined_bins)
 
-    // -- Fase A: Tipificacion plasmidos
+    // -- Plasmid typing
     MOBSUITE(MEDAKA.out.polished)
 
-    // -- Fase A: Integrones (por MAG individual)
+    // -- Integrons (per MAG)
     ch_integronfinder_input = DAS_TOOL.out.refined_bins
         .flatMap { sample, bins_dir ->
             def fa_files = file("${bins_dir}/*.fa")
@@ -836,7 +847,7 @@ workflow MAG {
         }
     INTEGRONFINDER(ch_integronfinder_input)
 
-    // -- Fase A: Bakta (por MAG individual)
+    // -- Bakta annotation (per MAG)
     ch_bakta_input = DAS_TOOL.out.refined_bins
         .flatMap { sample, bins_dir ->
             def fa_files = file("${bins_dir}/*.fa")

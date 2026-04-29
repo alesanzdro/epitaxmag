@@ -1,19 +1,19 @@
 #!/usr/bin/env python3
 """
 integrate_amr_pathogen.py
-Integracion AMR-Patogeno-Plasmido para EpiTaxMAG.
+AMR-Pathogen-Plasmid integration for EpiTaxMAG.
 
-Cruza resultados de:
-  - GTDB-Tk (taxonomia de MAGs)
-  - AMRFinderPlus (genes AMR por bin)
-  - geNomad (contigs plasmidicos/virales)
-  - CheckM2 (calidad de bins)
+Cross-references results from:
+  - GTDB-Tk (MAG taxonomy)
+  - AMRFinderPlus (AMR genes per bin)
+  - geNomad (plasmid/viral contigs)
+  - CheckM2 (bin quality)
 
-Genera:
-  - TSV integrado con: organismo + gen AMR + localizacion (cromosoma/plasmido)
-  - Resumen de riesgo por organismo
+Outputs:
+  - Integrated TSV with: organism + AMR gene + location (chromosome/plasmid)
+  - Risk summary per organism
 
-Uso:
+Usage:
   python3 integrate_amr_pathogen.py \
       --sample SAMPLE_NAME \
       --taxonomy sample_taxonomy.tsv \
@@ -53,9 +53,9 @@ def parse_taxonomy(path):
 
 
 def parse_taxonomy_levels(classification):
-    """Extraer niveles taxonomicos de una string GTDB.
+    """Extract taxonomic levels from a GTDB string.
     Input: d__Bacteria;p__Proteobacteria;c__...;g__Acinetobacter;s__A. baumannii
-    Output: dict con domain, phylum, class, order, family, genus, species
+    Output: dict with domain, phylum, class, order, family, genus, species
     """
     levels = {}
     prefixes = {
@@ -92,15 +92,15 @@ def parse_checkm2(path):
 
 def parse_amr(path):
     """Parse AMRFinderPlus results -> list of dicts.
-    Acepta un directorio (per_bin/*.tsv) o un fichero combinado.
+    Accepts a directory (per_bin/*.tsv) or a combined file.
     """
     hits = []
 
-    # Si es un directorio, leer ficheros individuales
+    # If it's a directory, read individual files
     if os.path.isdir(path):
         files = sorted(glob.glob(os.path.join(path, '*_amr.tsv')))
     elif os.path.isfile(path):
-        # Si el combined tiene header corrupto, intentar per_bin/
+        # If the combined file has a corrupt header, try per_bin/
         parent = os.path.dirname(path)
         per_bin = os.path.join(parent, 'per_bin')
         if os.path.isdir(per_bin):
@@ -147,7 +147,7 @@ def parse_plasmids(path):
             return plasmids
         for _, row in df.iterrows():
             seq_name = str(row.iloc[0]).strip()
-            # geNomad añade |provirus o similar, limpiar
+            # geNomad appends |provirus or similar, clean it up
             base_name = seq_name.split('|')[0]
             score = float(row.get('plasmid_score', row.get('score', 0)))
             n_genes = int(row.get('n_genes', 0)) if 'n_genes' in row else 0
@@ -161,7 +161,7 @@ def parse_plasmids(path):
 
 
 def classify_risk(amr_class, element_type, location):
-    """Clasificar nivel de riesgo de un gen AMR."""
+    """Classify risk level of an AMR gene."""
     high_risk_classes = {
         'BETA-LACTAM', 'CARBAPENEM', 'CEPHALOSPORIN',
         'COLISTIN', 'GLYCOPEPTIDE', 'QUINOLONE'
@@ -169,17 +169,17 @@ def classify_risk(amr_class, element_type, location):
     amr_upper = amr_class.upper() if amr_class else ''
 
     if location == 'PLASMID' and amr_upper in high_risk_classes:
-        return 'CRITICO'
+        return 'CRITICAL'
     elif location == 'PLASMID':
-        return 'ALTO'
+        return 'HIGH'
     elif amr_upper in high_risk_classes:
-        return 'MEDIO'
+        return 'MEDIUM'
     else:
-        return 'BAJO'
+        return 'LOW'
 
 
 def quality_label(comp, cont):
-    """Etiqueta MIMAG de calidad."""
+    """MIMAG quality label."""
     if comp >= 90 and cont <= 5:
         return 'HQ'
     elif comp >= 50 and cont <= 10:
@@ -189,25 +189,25 @@ def quality_label(comp, cont):
 
 
 def integrate(sample, taxonomy, checkm2, amr_hits, plasmids):
-    """Integrar todas las fuentes en una tabla unificada."""
+    """Integrate all sources into a unified table."""
     rows = []
 
     for hit in amr_hits:
         bin_name = hit['bin_name']
         contig = hit['contig_id']
 
-        # Taxonomia
+        # Taxonomy
         tax_string = taxonomy.get(bin_name, '')
         levels = parse_taxonomy_levels(tax_string)
         genus = levels.get('genus', 'Unknown')
         species = levels.get('species', '')
         organism = f"{genus} {species}".strip() if species else genus
 
-        # Calidad del bin
+        # Bin quality
         comp, cont = checkm2.get(bin_name, (0, 0))
         qc_label = quality_label(comp, cont)
 
-        # Localizacion: plasmido o cromosoma?
+        # Location: plasmid or chromosome?
         if contig in plasmids:
             location = 'PLASMID'
             plas_score = plasmids[contig]['plasmid_score']
@@ -215,7 +215,7 @@ def integrate(sample, taxonomy, checkm2, amr_hits, plasmids):
             location = 'CHROMOSOME'
             plas_score = 0.0
 
-        # Riesgo
+        # Risk
         risk = classify_risk(hit['amr_class'], hit['element_type'], location)
 
         rows.append({
@@ -244,40 +244,40 @@ def integrate(sample, taxonomy, checkm2, amr_hits, plasmids):
 
 
 def generate_summary(df):
-    """Genera resumen de texto a partir de la tabla integrada."""
+    """Generate a text summary from the integrated table."""
     if df.empty:
-        return "No se detectaron genes de resistencia en los MAGs de esta muestra."
+        return "No resistance genes detected in the MAGs of this sample."
 
     lines = []
     sample = df['Sample'].iloc[0]
     n_genes = len(df)
     n_mags = df['MAG'].nunique()
     n_plasmid = len(df[df['Location'] == 'PLASMID'])
-    n_critical = len(df[df['Risk_level'] == 'CRITICO'])
-    n_high = len(df[df['Risk_level'] == 'ALTO'])
+    n_critical = len(df[df['Risk_level'] == 'CRITICAL'])
+    n_high = len(df[df['Risk_level'] == 'HIGH'])
 
-    lines.append(f"Muestra: {sample}")
-    lines.append(f"Total genes AMR: {n_genes} en {n_mags} MAGs")
-    lines.append(f"En plasmidos: {n_plasmid} ({n_plasmid/n_genes*100:.0f}%)")
+    lines.append(f"Sample: {sample}")
+    lines.append(f"Total AMR genes: {n_genes} in {n_mags} MAGs")
+    lines.append(f"On plasmids: {n_plasmid} ({n_plasmid/n_genes*100:.0f}%)")
 
     if n_critical > 0:
-        lines.append(f"ALERTA: {n_critical} genes AMR CRITICOS (resistencia clave en plasmido)")
-        critical = df[df['Risk_level'] == 'CRITICO']
+        lines.append(f"ALERT: {n_critical} CRITICAL AMR genes (key resistance on plasmid)")
+        critical = df[df['Risk_level'] == 'CRITICAL']
         for _, row in critical.iterrows():
-            lines.append(f"  - {row['Gene']} ({row['AMR_class']}) en {row['Organism']} [plasmido, score={row['Plasmid_score']:.2f}]")
+            lines.append(f"  - {row['Gene']} ({row['AMR_class']}) in {row['Organism']} [plasmid, score={row['Plasmid_score']:.2f}]")
 
     if n_high > 0:
-        lines.append(f"Riesgo ALTO: {n_high} genes AMR en plasmidos (transferibles)")
+        lines.append(f"HIGH risk: {n_high} AMR genes on plasmids (transferable)")
 
-    # Top organismos
+    # Top organisms
     lines.append("")
-    lines.append("Organismos con AMR:")
+    lines.append("Organisms with AMR:")
     org_counts = df.groupby('Organism')['Gene'].count().sort_values(ascending=False)
     for org, count in org_counts.items():
         sub = df[df['Organism'] == org]
         classes = ', '.join(sorted(sub['AMR_class'].unique()))
         plas = len(sub[sub['Location'] == 'PLASMID'])
-        lines.append(f"  {org}: {count} genes ({classes}) [{plas} en plasmido]")
+        lines.append(f"  {org}: {count} genes ({classes}) [{plas} on plasmid]")
 
     return '\n'.join(lines)
 
@@ -285,7 +285,7 @@ def generate_summary(df):
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument('--sample', required=True, help='Nombre de la muestra')
+    parser.add_argument('--sample', required=True, help='Sample name')
     parser.add_argument('--taxonomy', required=True, help='GTDB-Tk taxonomy TSV')
     parser.add_argument('--amr', required=True, help='AMRFinderPlus combined TSV')
     parser.add_argument('--checkm2', required=True, help='CheckM2 quality_report.tsv')
@@ -294,32 +294,32 @@ def main():
     parser.add_argument('--summary', default='', help='Output summary TXT')
     args = parser.parse_args()
 
-    print(f'[INFO] Integrando AMR-Patogeno-Plasmido para {args.sample}')
+    print(f'[INFO] Integrating AMR-Pathogen-Plasmid for {args.sample}')
 
     taxonomy = parse_taxonomy(args.taxonomy)
-    print(f'[INFO] GTDB-Tk: {len(taxonomy)} MAGs clasificados')
+    print(f'[INFO] GTDB-Tk: {len(taxonomy)} MAGs classified')
 
     checkm2 = parse_checkm2(args.checkm2)
-    print(f'[INFO] CheckM2: {len(checkm2)} bins evaluados')
+    print(f'[INFO] CheckM2: {len(checkm2)} bins evaluated')
 
     amr_hits = parse_amr(args.amr)
-    print(f'[INFO] AMRFinderPlus: {len(amr_hits)} genes AMR')
+    print(f'[INFO] AMRFinderPlus: {len(amr_hits)} AMR genes')
 
     plasmids = parse_plasmids(args.plasmids)
-    print(f'[INFO] geNomad: {len(plasmids)} contigs plasmidicos')
+    print(f'[INFO] geNomad: {len(plasmids)} plasmid contigs')
 
     df = integrate(args.sample, taxonomy, checkm2, amr_hits, plasmids)
 
-    # Guardar TSV
+    # Save TSV
     df.to_csv(args.output, sep='\t', index=False)
-    print(f'[OK] Tabla integrada: {args.output} ({len(df)} filas)')
+    print(f'[OK] Integrated table: {args.output} ({len(df)} rows)')
 
-    # Guardar resumen
+    # Save summary
     summary = generate_summary(df)
     summary_path = args.summary or args.output.replace('.tsv', '_summary.txt')
     with open(summary_path, 'w') as f:
         f.write(summary)
-    print(f'[OK] Resumen: {summary_path}')
+    print(f'[OK] Summary: {summary_path}')
     print(summary)
 
 

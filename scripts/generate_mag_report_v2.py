@@ -40,12 +40,12 @@ PALETTE = [BLUE, ORANGE, GREEN, '#9B59B6', '#F39C12',
            '#1ABC9C', RED, '#3498DB', '#95A5A6', '#D35400',
            '#27AE60', '#8E44AD', '#C0392B', '#16A085', '#2980B9']
 
-RISK_COLORS = {'CRITICO': RED, 'ALTO': ORANGE, 'MEDIO': '#F39C12', 'BAJO': GREEN}
+RISK_COLORS = {'CRITICAL': RED, 'HIGH': ORANGE, 'MEDIUM': '#F39C12', 'LOW': GREEN}
 RISK_BADGE = {
-    'CRITICO': f'<span class="badge" style="background:{RED}">CRITICO</span>',
-    'ALTO':    f'<span class="badge" style="background:{ORANGE}">ALTO</span>',
-    'MEDIO':   f'<span class="badge" style="background:#F39C12">MEDIO</span>',
-    'BAJO':    f'<span class="badge" style="background:{GREEN}">BAJO</span>',
+    'CRITICAL': f'<span class="badge" style="background:{RED}">CRITICAL</span>',
+    'HIGH':     f'<span class="badge" style="background:{ORANGE}">HIGH</span>',
+    'MEDIUM':   f'<span class="badge" style="background:#F39C12">MEDIUM</span>',
+    'LOW':      f'<span class="badge" style="background:{GREEN}">LOW</span>',
 }
 QC_BADGE = {
     'HQ': f'<span class="badge" style="background:{GREEN}">HQ</span>',
@@ -54,39 +54,39 @@ QC_BADGE = {
 }
 CONCORDANCE_BADGE = {
     'BOTH':    f'<span class="badge" style="background:{GREEN}">Reads+Contigs</span>',
-    'READS':   f'<span class="badge" style="background:#F39C12">Solo Reads</span>',
-    'CONTIGS': f'<span class="badge" style="background:{LBLUE}">Solo Contigs</span>',
+    'READS':   f'<span class="badge" style="background:#F39C12">Reads only</span>',
+    'CONTIGS': f'<span class="badge" style="background:{LBLUE}">Contigs only</span>',
 }
 
 SOFTWARE_VERSIONS = [
     ('NanoPlot', '1.46.2', 'QC reads', 'https://github.com/wdecoster/NanoPlot'),
     ('FastQC', '0.12.1', 'QC reads', 'https://www.bioinformatics.babraham.ac.uk/projects/fastqc/'),
-    ('FastQ Screen', '0.16.0', 'Screening contaminacion', 'https://www.bioinformatics.babraham.ac.uk/projects/fastq_screen/'),
-    ('Porechop ABI', '0.5.1', 'Trimming adaptadores', 'https://github.com/bonsai-team/Porechop_ABI'),
-    ('Chopper', '0.12.0', 'Filtrado calidad/longitud', 'https://github.com/wdecoster/chopper'),
-    ('minimap2', '2.30', 'Mapeo y host removal', 'https://github.com/lh3/minimap2'),
-    ('samtools', '1.21', 'Manipulacion BAM/SAM', 'https://www.htslib.org/'),
-    ('Kraken2', '2.17.1', 'Clasificacion taxonomica reads', 'https://ccb.jhu.edu/software/kraken2/'),
-    ('Bracken', '3.1', 'Re-estimacion abundancia', 'https://ccb.jhu.edu/software/bracken/'),
-    ('Kaiju', '1.10.1', 'Clasificacion taxonomica proteinas', 'https://bioinformatics-centre.github.io/kaiju/'),
-    ('Sylph', '0.9.0', 'Profiling taxonomico k-mer', 'https://github.com/bluenote-1577/sylph'),
+    ('FastQ Screen', '0.16.0', 'Contamination screening', 'https://www.bioinformatics.babraham.ac.uk/projects/fastq_screen/'),
+    ('Porechop ABI', '0.5.1', 'Adapter trimming', 'https://github.com/bonsai-team/Porechop_ABI'),
+    ('Chopper', '0.12.0', 'Quality/length filtering', 'https://github.com/wdecoster/chopper'),
+    ('minimap2', '2.30', 'Mapping and host removal', 'https://github.com/lh3/minimap2'),
+    ('samtools', '1.21', 'BAM/SAM manipulation', 'https://www.htslib.org/'),
+    ('Kraken2', '2.17.1', 'Read taxonomic classification', 'https://ccb.jhu.edu/software/kraken2/'),
+    ('Bracken', '3.1', 'Abundance re-estimation', 'https://ccb.jhu.edu/software/bracken/'),
+    ('Kaiju', '1.10.1', 'Protein taxonomic classification', 'https://bioinformatics-centre.github.io/kaiju/'),
+    ('Sylph', '0.9.0', 'k-mer taxonomic profiling', 'https://github.com/bluenote-1577/sylph'),
     ('KMA', '1.6.8', 'AMR reads (ResFinder)', 'https://bitbucket.org/genomicepidemiology/kma/'),
-    ('MultiQC', '1.33', 'Agregacion QC', 'https://multiqc.info/'),
-    ('MetaFlye', '2.9.6', 'Ensamblaje metagenomico', 'https://github.com/fenderglass/Flye'),
-    ('Medaka', '2.2.1', 'Polishing consenso', 'https://github.com/nanoporetech/medaka'),
-    ('QUAST', '5.3.0', 'QC ensamblaje', 'https://quast.sourceforge.net/'),
-    ('MetaBAT2', '2.18', 'Binning (cobertura)', 'https://bitbucket.org/berkeleylab/metabat/'),
+    ('MultiQC', '1.33', 'QC aggregation', 'https://multiqc.info/'),
+    ('MetaFlye', '2.9.6', 'Metagenomic assembly', 'https://github.com/fenderglass/Flye'),
+    ('Medaka', '2.2.1', 'Consensus polishing', 'https://github.com/nanoporetech/medaka'),
+    ('QUAST', '5.3.0', 'Assembly QC', 'https://quast.sourceforge.net/'),
+    ('MetaBAT2', '2.18', 'Binning (coverage)', 'https://bitbucket.org/berkeleylab/metabat/'),
     ('MaxBin2', '2.2.7', 'Binning (EM)', 'https://sourceforge.net/projects/maxbin2/'),
     ('SemiBin2', '2.2.1', 'Binning (deep learning)', 'https://github.com/BigDataBiology/SemiBin'),
-    ('DAS Tool', '1.1.7', 'Refinamiento bins', 'https://github.com/cmks/DAS_Tool'),
-    ('CheckM2', '1.1.0', 'QC MAGs', 'https://github.com/chklovski/CheckM2'),
-    ('GTDB-Tk', '2.7.0 (r232)', 'Taxonomia genomas', 'https://ecogenomics.github.io/GTDBTk/'),
+    ('DAS Tool', '1.1.7', 'Bin refinement', 'https://github.com/cmks/DAS_Tool'),
+    ('CheckM2', '1.1.0', 'MAG QC', 'https://github.com/chklovski/CheckM2'),
+    ('GTDB-Tk', '2.7.0 (r232)', 'Genome taxonomy', 'https://ecogenomics.github.io/GTDBTk/'),
     ('AMRFinderPlus', '4.2.7', 'AMR contigs', 'https://www.ncbi.nlm.nih.gov/pathogens/antimicrobial-resistance/AMRFinder/'),
-    ('geNomad', '1.12.0', 'Plasmidos/virus', 'https://github.com/apcamargo/genomad'),
-    ('ABRicate', '1.0.1', 'Virulencia (VFDB)', 'https://github.com/tseemann/abricate'),
-    ('MOB-suite', '3.1.9', 'Tipificacion plasmidos', 'https://github.com/phac-nml/mob-suite'),
-    ('IntegronFinder', '2.0.5', 'Integrones', 'https://github.com/gem-pasteur/Integron_Finder'),
-    ('Bakta', '1.12.0', 'Anotacion genomas', 'https://github.com/oschwengers/bakta'),
+    ('geNomad', '1.12.0', 'Plasmids/viruses', 'https://github.com/apcamargo/genomad'),
+    ('ABRicate', '1.0.1', 'Virulence (VFDB)', 'https://github.com/tseemann/abricate'),
+    ('MOB-suite', '3.1.9', 'Plasmid typing', 'https://github.com/phac-nml/mob-suite'),
+    ('IntegronFinder', '2.0.5', 'Integrons', 'https://github.com/gem-pasteur/Integron_Finder'),
+    ('Bakta', '1.12.0', 'Genome annotation', 'https://github.com/oschwengers/bakta'),
 ]
 
 
@@ -826,7 +826,7 @@ def chart_summary_bar(data):
                          marker_color='#1ABC9C'))
     fig.update_layout(
         barmode='group', height=400,
-        title=dict(text='Resumen por Muestra', font_color=BLUE, font_size=14),
+        title=dict(text='Per-Sample Summary', font_color=BLUE, font_size=14),
         xaxis_tickangle=-40,
         margin=dict(l=60, r=30, t=60, b=100),
         legend=dict(orientation='h', yanchor='bottom', y=1.04,
@@ -887,7 +887,7 @@ def chart_taxonomy_stacked(tax_df, checkm2_df):
 
     fig.update_layout(
         barmode='stack', height=450,
-        title=dict(text='Composicion Taxonomica por Muestra (Clase)',
+        title=dict(text='Per-Sample Taxonomic Composition (Class)',
                    font_color=BLUE, font_size=14),
         xaxis_tickangle=-40,
         yaxis_title='N MAGs',
@@ -917,7 +917,7 @@ def chart_bins_per_binner(bins_df):
             text=counts, textposition='outside', textfont_size=8))
     fig.update_layout(
         barmode='group', height=400,
-        title=dict(text='Bins por Binner y Muestra',
+        title=dict(text='Bins per Binner and Sample',
                    font_color=BLUE, font_size=14),
         xaxis_tickangle=-40,
         yaxis_title='N bins',
@@ -931,7 +931,7 @@ def chart_bins_per_binner(bins_df):
 def html_assembly_table(quast_df):
     """Table of assembly metrics from QUAST data."""
     if quast_df.empty:
-        return '<p class="no-data">Sin datos de ensamblaje (QUAST).</p>'
+        return '<p class="no-data">No assembly data (QUAST).</p>'
     rows = ''
     for _, r in quast_df.iterrows():
         sample = str(r.get('Sample', ''))
@@ -952,7 +952,7 @@ def html_assembly_table(quast_df):
             f'</tr>\n')
     return (
         '<table class="data-table sortable filterable"><thead><tr>'
-        '<th>Muestra</th><th>Total Contigs</th><th>Total Length (Mb)</th>'
+        '<th>Sample</th><th>Total Contigs</th><th>Total Length (Mb)</th>'
         '<th>Largest Contig</th><th>N50</th><th>GC (%)</th>'
         '</tr></thead>'
         f'<tbody>{rows}</tbody></table>')
@@ -977,7 +977,7 @@ def chart_amr_heatmap(integ_df):
         texttemplate='%{text}', textfont_size=9,
         colorbar=dict(title=dict(text='N genes', side='right'))))
     fig.update_layout(
-        title=dict(text='AMR: Organismos vs Clases de Resistencia',
+        title=dict(text='AMR: Organisms vs Resistance Classes',
                    font_color=BLUE, font_size=14),
         height=max(350, len(pivot) * 28 + 150),
         margin=dict(l=250, r=80, t=60, b=150),
@@ -990,7 +990,7 @@ def chart_amr_heatmap(integ_df):
 def chart_risk_summary(integ_df):
     if integ_df.empty:
         return None
-    order = ['CRITICO', 'ALTO', 'MEDIO', 'BAJO']
+    order = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
     risk_counts = integ_df['Risk_level'].value_counts()
     # Reindex to desired order
     risk_counts = risk_counts.reindex(order).fillna(0).astype(int)
@@ -1003,7 +1003,7 @@ def chart_risk_summary(integ_df):
         marker_color=colors_map,
         text=risk_counts.values, textposition='outside'))
     fig.update_layout(
-        title=dict(text='Distribucion de Niveles de Riesgo AMR',
+        title=dict(text='AMR Risk Level Distribution',
                    font_color=BLUE, font_size=14),
         height=300,
         margin=dict(l=60, r=30, t=60, b=60),
@@ -1018,17 +1018,17 @@ def chart_risk_summary(integ_df):
 
 def html_pipeline_dag():
     return """<div class="dag-container"><div class="dag-flow">
-    <div class="dag-step-num">Pasos 01-04</div>
+    <div class="dag-step-num">Steps 01-04</div>
     <div class="dag-row">
         <div class="dag-box qc">01 NanoPlot 1.46.2</div>
         <div class="dag-box qc">02 FastQC 0.12.1</div>
         <div class="dag-box qc">03 CHECK_SQCORE</div>
         <div class="dag-box qc">04 FastQ Screen 0.16.0</div>
     </div>
-    <div class="dag-label">QC + Screening (reads crudos)</div>
+    <div class="dag-label">QC + Screening (raw reads)</div>
     <div class="dag-arrow">&#x25BC;</div>
 
-    <div class="dag-step-num">Pasos 05-07</div>
+    <div class="dag-step-num">Steps 05-07</div>
     <div class="dag-row">
         <div class="dag-box trim">05 Porechop ABI 0.5.1</div>
         <div class="dag-arrow-h">&#x25B6;</div>
@@ -1036,18 +1036,18 @@ def html_pipeline_dag():
         <div class="dag-arrow-h">&#x25B6;</div>
         <div class="dag-box trim">07 Host Removal (minimap2 2.30)</div>
     </div>
-    <div class="dag-label">Trimming + Filtrado + Decontaminacion</div>
+    <div class="dag-label">Trimming + Filtering + Decontamination</div>
     <div class="dag-arrow">&#x25BC;</div>
 
-    <div class="dag-step-num">Pasos 08-09</div>
+    <div class="dag-step-num">Steps 08-09</div>
     <div class="dag-row">
         <div class="dag-box qc">08 NanoPlot 1.46.2</div>
         <div class="dag-box qc">09 FastQC 0.12.1</div>
     </div>
-    <div class="dag-label">QC reads filtrados</div>
+    <div class="dag-label">Filtered reads QC</div>
     <div class="dag-arrow">&#x25BC;</div>
 
-    <div class="dag-step-num">Pasos 10-13</div>
+    <div class="dag-step-num">Steps 10-13</div>
     <div class="dag-row">
         <div class="dag-box tax">10 Kraken2 2.17.1</div>
         <div class="dag-box tax">11 Bracken 3.1</div>
@@ -1055,18 +1055,18 @@ def html_pipeline_dag():
         <div class="dag-box tax">13 Sylph 0.9.0</div>
         <div class="dag-box ann">14 KMA 1.6.8</div>
     </div>
-    <div class="dag-label">EpiTax: Taxonomia + AMR reads (ResFinder)</div>
+    <div class="dag-label">EpiTax: Taxonomy + AMR reads (ResFinder)</div>
     <div class="dag-arrow">&#x25BC;</div>
 
-    <div class="dag-step-num">Pasos 15-16</div>
+    <div class="dag-step-num">Steps 15-16</div>
     <div class="dag-row">
         <div class="dag-box rep">15 MultiQC 1.33</div>
         <div class="dag-box rep">16 EpiTax HTML Report</div>
     </div>
-    <div class="dag-label">Reportes fase TAX</div>
-    <div class="dag-arrow">&#x25BC; reads filtrados</div>
+    <div class="dag-label">TAX phase reports</div>
+    <div class="dag-arrow">&#x25BC; filtered reads</div>
 
-    <div class="dag-step-num">Pasos 17-19</div>
+    <div class="dag-step-num">Steps 17-19</div>
     <div class="dag-row">
         <div class="dag-box asm">17 MetaFlye 2.9.6</div>
         <div class="dag-arrow-h">&#x25B6;</div>
@@ -1074,59 +1074,59 @@ def html_pipeline_dag():
         <div class="dag-arrow-h">&#x25B6;</div>
         <div class="dag-box qc">19 QUAST 5.3.0</div>
     </div>
-    <div class="dag-label">Ensamblaje + Polishing + QC</div>
+    <div class="dag-label">Assembly + Polishing + QC</div>
     <div class="dag-arrow">&#x25BC;</div>
 
-    <div class="dag-step-num">Paso 20</div>
+    <div class="dag-step-num">Step 20</div>
     <div class="dag-row">
         <div class="dag-box asm">20 minimap2 2.30 + samtools 1.21</div>
     </div>
-    <div class="dag-label">Mapeo cobertura</div>
+    <div class="dag-label">Coverage mapping</div>
     <div class="dag-arrow">&#x25BC;</div>
 
-    <div class="dag-step-num">Pasos 21-23</div>
+    <div class="dag-step-num">Steps 21-23</div>
     <div class="dag-row">
         <div class="dag-box bin">21 MetaBAT2 2.18</div>
         <div class="dag-box bin">22 MaxBin2 2.2.7</div>
         <div class="dag-box bin">23 SemiBin2 2.2.1</div>
     </div>
-    <div class="dag-label">Binning (3 algoritmos)</div>
+    <div class="dag-label">Binning (3 algorithms)</div>
     <div class="dag-arrow">&#x25BC;</div>
 
-    <div class="dag-step-num">Paso 24</div>
+    <div class="dag-step-num">Step 24</div>
     <div class="dag-row">
         <div class="dag-box bin">24 DAS Tool 1.1.7</div>
     </div>
-    <div class="dag-label">Refinamiento de bins</div>
+    <div class="dag-label">Bin refinement</div>
     <div class="dag-arrow">&#x25BC;</div>
 
-    <div class="dag-step-num">Pasos 25-28</div>
+    <div class="dag-step-num">Steps 25-28</div>
     <div class="dag-row">
         <div class="dag-box qc">25 CheckM2 1.1.0</div>
         <div class="dag-box tax">26 GTDB-Tk 2.7.0 (r232)</div>
         <div class="dag-box ann">27 AMRFinderPlus 4.2.7</div>
         <div class="dag-box ann">28 geNomad 1.12.0</div>
     </div>
-    <div class="dag-label">QC + Taxonomia + AMR contigs + Plasmidos</div>
+    <div class="dag-label">QC + Taxonomy + AMR contigs + Plasmids</div>
     <div class="dag-arrow">&#x25BC;</div>
 
-    <div class="dag-step-num">Pasos 29-31</div>
+    <div class="dag-step-num">Steps 29-31</div>
     <div class="dag-row">
         <div class="dag-box ann">29 ABRicate/VFDB 1.0.1</div>
         <div class="dag-box ann">30 MOB-suite 3.1.9</div>
         <div class="dag-box ann">31 IntegronFinder 2.0.5</div>
         <div class="dag-box rep">32 Bakta 1.12.0</div>
     </div>
-    <div class="dag-label">Virulencia + Movilidad + Integrones + Anotacion</div>
+    <div class="dag-label">Virulence + Mobility + Integrons + Annotation</div>
     <div class="dag-arrow">&#x25BC;</div>
 
-    <div class="dag-step-num">Paso final</div>
+    <div class="dag-step-num">Final step</div>
     <div class="dag-row">
-        <div class="dag-box rep">Integracion AMR-Patogeno-Plasmido</div>
+        <div class="dag-box rep">AMR-Pathogen-Plasmid integration</div>
         <div class="dag-arrow-h">&#x25B6;</div>
         <div class="dag-box rep-final">EpiTaxMAG Report v2</div>
     </div>
-    <div class="dag-label">Reporte final con evaluacion de riesgo</div>
+    <div class="dag-label">Final report with risk assessment</div>
     </div></div>"""
 
 
@@ -1136,7 +1136,7 @@ def html_pipeline_dag():
 
 def html_survival_table(surv):
     if surv.empty:
-        return '<p class="no-data">Sin datos de QC.</p>'
+        return '<p class="no-data">No QC data.</p>'
     rows = ''
     for _, r in surv.iterrows():
         pct_cls = 'good' if r['pct_reads'] >= 70 else (
@@ -1158,14 +1158,14 @@ def html_survival_table(surv):
         f'<td><strong>{pct:.1f}%</strong></td></tr>')
     return (
         '<table class="data-table sortable filterable"><thead><tr>'
-        '<th>Muestra</th><th>Raw Reads</th><th>Raw Gb</th>'
-        '<th>Clean Reads</th><th>Clean Gb</th><th>% Retencion</th>'
+        '<th>Sample</th><th>Raw Reads</th><th>Raw Gb</th>'
+        '<th>Clean Reads</th><th>Clean Gb</th><th>% Retention</th>'
         f'</tr></thead><tbody>{rows}</tbody></table>')
 
 
 def html_mag_catalog(checkm2_df, tax_df, bakta_df):
     if checkm2_df.empty:
-        return '<p class="no-data">Sin MAGs recuperados.</p>'
+        return '<p class="no-data">No MAGs recovered.</p>'
     df = checkm2_df.copy()
     if not tax_df.empty:
         df = df.merge(
@@ -1208,8 +1208,8 @@ def html_mag_catalog(checkm2_df, tax_df, bakta_df):
 
     return (
         '<table class="data-table sortable filterable"><thead><tr>'
-        '<th>Muestra</th><th>Bin</th><th>Organismo</th>'
-        '<th>Completeness</th><th>Contamination</th><th>Calidad</th>'
+        '<th>Sample</th><th>Bin</th><th>Organism</th>'
+        '<th>Completeness</th><th>Contamination</th><th>Quality</th>'
         '<th>tRNAs</th><th>rRNAs</th>'
         '</tr></thead>'
         f'<tbody>{rows}</tbody></table>')
@@ -1217,7 +1217,7 @@ def html_mag_catalog(checkm2_df, tax_df, bakta_df):
 
 def html_amr_detail(integ_df, amr_mags_df):
     if integ_df.empty:
-        return '<p class="no-data">Sin genes AMR detectados en MAGs.</p>'
+        return '<p class="no-data">No AMR genes detected in MAGs.</p>'
     df = integ_df.copy()
 
     # Build lookup from amr_mags for extra columns
@@ -1243,9 +1243,9 @@ def html_amr_detail(integ_df, amr_mags_df):
         conf_cls = 'good' if conf >= 70 else ('warn' if conf >= 40 else 'bad')
         loc = r.get('Location', '')
         if loc == 'PLASMID':
-            loc_badge = f'<span class="badge" style="background:{RED}">PLASMIDO</span>'
+            loc_badge = f'<span class="badge" style="background:{RED}">PLASMID</span>'
         else:
-            loc_badge = f'<span class="badge" style="background:{LBLUE}">CROMOSOMA</span>'
+            loc_badge = f'<span class="badge" style="background:{LBLUE}">CHROMOSOME</span>'
         s_name = str(r.get('Sample', ''))
 
         gene_sym = str(r.get('Gene', ''))
@@ -1298,20 +1298,20 @@ def html_amr_detail(integ_df, amr_mags_df):
 
     return (
         '<table class="data-table sortable filterable"><thead><tr>'
-        '<th>Muestra</th><th>Organismo</th><th>Gen</th><th>Descripcion</th>'
-        '<th>Clase AMR</th><th>Ubicacion</th>'
-        '<th>% Identidad</th><th>% Cobertura</th><th>Metodo</th>'
-        '<th>Confianza</th><th>Riesgo</th><th>Links</th>'
+        '<th>Sample</th><th>Organism</th><th>Gene</th><th>Description</th>'
+        '<th>AMR Class</th><th>Location</th>'
+        '<th>% Identity</th><th>% Coverage</th><th>Method</th>'
+        '<th>Confidence</th><th>Risk</th><th>Links</th>'
         '</tr></thead>'
         f'<tbody>{rows}</tbody></table>'
-        '<p class="note">Confianza: score compuesto (0-100) basado en identidad, '
-        'cobertura, metodo de deteccion, concordancia KMA-MAG y calidad del MAG. '
-        'Links: NCBI Protein (accession) y CARD (base de datos de resistencia).</p>')
+        '<p class="note">Confidence: composite score (0-100) based on identity, '
+        'coverage, detection method, KMA-MAG concordance and MAG quality. '
+        'Links: NCBI Protein (accession) and CARD (resistance database).</p>')
 
 
 def html_concordance_table(conc_df):
     if conc_df.empty:
-        return '<p class="no-data">Sin datos de concordancia KMA-MAG.</p>'
+        return '<p class="no-data">No KMA-MAG concordance data.</p>'
     rows = ''
     for _, r in conc_df.iterrows():
         badge = CONCORDANCE_BADGE.get(r.get('Source', ''), '')
@@ -1337,19 +1337,18 @@ def html_concordance_table(conc_df):
 
     return (
         '<table class="data-table sortable filterable"><thead><tr>'
-        '<th>Muestra</th><th>Gen</th>'
-        '<th>Deteccion</th><th>KMA Depth</th><th>KMA Identity</th>'
+        '<th>Sample</th><th>Gene</th>'
+        '<th>Detection</th><th>KMA Depth</th><th>KMA Identity</th>'
         '<th>MAG Identity</th>'
         '</tr></thead>'
         f'<tbody>{rows}</tbody></table>'
-        '<p class="note">Reads+Contigs = maxima confianza. Solo Reads = posible '
-        'reservorio no ensamblado. Solo Contigs = profundidad de reads '
-        'insuficiente para KMA.</p>')
+        '<p class="note">Reads+Contigs = maximum confidence. Reads only = possible '
+        'unassembled reservoir. Contigs only = insufficient read depth for KMA.</p>')
 
 
 def html_vfdb_table(vfdb_df):
     if vfdb_df.empty:
-        return '<p class="no-data">Sin factores de virulencia detectados.</p>'
+        return '<p class="no-data">No virulence factors detected.</p>'
     rows = ''
     for _, r in vfdb_df.iterrows():
         rows += (
@@ -1363,17 +1362,17 @@ def html_vfdb_table(vfdb_df):
 
     return (
         '<table class="data-table sortable filterable"><thead><tr>'
-        '<th>Muestra</th><th>Bin</th><th>Gen</th><th>Producto</th>'
-        '<th>% Identidad</th><th>% Cobertura</th>'
+        '<th>Sample</th><th>Bin</th><th>Gene</th><th>Product</th>'
+        '<th>% Identity</th><th>% Coverage</th>'
         '</tr></thead>'
         f'<tbody>{rows}</tbody></table>'
-        f'<p class="note">Base de datos VFDB (Virulence Factor Database). '
-        f'{len(vfdb_df)} hits totales detectados por ABRicate.</p>')
+        f'<p class="note">VFDB database (Virulence Factor Database). '
+        f'{len(vfdb_df)} total hits detected by ABRicate.</p>')
 
 
 def html_plasmid_table(plasmids_df, integ_df):
     if plasmids_df.empty:
-        return '<p class="no-data">Sin plasmidos detectados por geNomad.</p>'
+        return '<p class="no-data">No plasmids detected by geNomad.</p>'
 
     # Also show AMR genes in plasmids
     plasmid_amr_rows = ''
@@ -1402,18 +1401,18 @@ def html_plasmid_table(plasmids_df, integ_df):
 
     return (
         '<table class="data-table sortable filterable"><thead><tr>'
-        '<th>Muestra</th><th>N Plasmidos</th><th>Score Medio</th>'
-        '<th>Genes AMR en Plasmidos</th>'
+        '<th>Sample</th><th>N Plasmids</th><th>Mean Score</th>'
+        '<th>AMR Genes on Plasmids</th>'
         '</tr></thead>'
         f'<tbody>{rows}</tbody></table>'
-        '<p class="note">Score plasmido (geNomad): &ge;0.9 confirmado, '
-        '0.7-0.9 probable, &lt;0.7 dudoso. Genes AMR en plasmidos conjugativos '
-        'representan riesgo de diseminacion horizontal.</p>')
+        '<p class="note">Plasmid score (geNomad): &ge;0.9 confirmed, '
+        '0.7-0.9 probable, &lt;0.7 uncertain. AMR genes on conjugative plasmids '
+        'pose a risk of horizontal dissemination.</p>')
 
 
 def html_integron_table(integron_summary_df):
     if integron_summary_df.empty:
-        return '<p class="no-data">Sin integrones detectados.</p>'
+        return '<p class="no-data">No integrons detected.</p>'
     rows = ''
     for _, r in integron_summary_df.iterrows():
         has_intI_badge = (
@@ -1431,13 +1430,13 @@ def html_integron_table(integron_summary_df):
 
     return (
         '<table class="data-table sortable filterable"><thead><tr>'
-        '<th>Muestra</th><th>MAG</th><th>N Complete</th>'
-        '<th>N In0</th><th>N CALIN</th><th>Integrasa (intI)</th>'
+        '<th>Sample</th><th>MAG</th><th>N Complete</th>'
+        '<th>N In0</th><th>N CALIN</th><th>Integrase (intI)</th>'
         '</tr></thead>'
         f'<tbody>{rows}</tbody></table>'
-        '<p class="note">Integrones completos contienen integrasa + cassettes. '
-        'In0 = solo integrasa sin cassettes. CALIN = cassettes sin integrasa. '
-        'La presencia de intI indica capacidad de adquisicion de nuevos genes.</p>')
+        '<p class="note">Complete integrons contain integrase + cassettes. '
+        'In0 = integrase only without cassettes. CALIN = cassettes without integrase. '
+        'Presence of intI indicates capacity to acquire new genes.</p>')
 
 
 def html_software_table():
@@ -1450,7 +1449,7 @@ def html_software_table():
             f'<td><a href="{url}" target="_blank">{_esc(url)}</a></td></tr>\n')
     return (
         '<table class="data-table sortable"><thead><tr>'
-        '<th>Software</th><th>Version</th><th>Funcion</th><th>URL</th>'
+        '<th>Software</th><th>Version</th><th>Function</th><th>URL</th>'
         '</tr></thead>'
         f'<tbody>{rows}</tbody></table>')
 
@@ -1785,22 +1784,22 @@ def build_footer(org_info, date_str):
 def build_toc():
     """Table of contents with anchor links."""
     sections = [
-        ('sec-dag', '1. Pipeline EpiTaxMAG - Flujo de Trabajo'),
-        ('sec-runstats', '2. Estadisticas de la Carrera'),
-        ('sec-retention', '3. Retencion de Lecturas'),
-        ('sec-screening', '4. Screening: FastQ Screen + Alerta Temprana'),
-        ('sec-summary', '5. Resumen por Muestra'),
-        ('sec-assembly', '6. Ensamblaje y Binning'),
-        ('sec-mags', '7. Catalogo de MAGs'),
-        ('sec-taxonomy', '8. Composicion Taxonomica'),
-        ('sec-amr', '9. Resistencia Antimicrobiana (AMR)'),
-        ('sec-heatmap', '10. Heatmap AMR'),
-        ('sec-concordance', '11. Concordancia KMA-MAG'),
-        ('sec-vfdb', '12. Factores de Virulencia (VFDB)'),
-        ('sec-plasmids', '13. Plasmidos'),
-        ('sec-integrons', '14. Integrones'),
-        ('sec-risk', '15. Evaluacion de Riesgo'),
-        ('sec-software', '16. Versiones de Software'),
+        ('sec-dag', '1. EpiTaxMAG Pipeline - Workflow'),
+        ('sec-runstats', '2. Run Statistics'),
+        ('sec-retention', '3. Read Retention'),
+        ('sec-screening', '4. Screening: FastQ Screen + Early Alert'),
+        ('sec-summary', '5. Per-Sample Summary'),
+        ('sec-assembly', '6. Assembly and Binning'),
+        ('sec-mags', '7. MAG Catalog'),
+        ('sec-taxonomy', '8. Taxonomic Composition'),
+        ('sec-amr', '9. Antimicrobial Resistance (AMR)'),
+        ('sec-heatmap', '10. AMR Heatmap'),
+        ('sec-concordance', '11. KMA-MAG Concordance'),
+        ('sec-vfdb', '12. Virulence Factors (VFDB)'),
+        ('sec-plasmids', '13. Plasmids'),
+        ('sec-integrons', '14. Integrons'),
+        ('sec-risk', '15. Risk Assessment'),
+        ('sec-software', '16. Software Versions'),
     ]
     links = '\n'.join(
         f'<a href="#{sid}">{label}</a>' for sid, label in sections)
@@ -1836,7 +1835,7 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
     n_amr = len(integ) if not integ.empty else 0
     n_plasmid_amr = (len(integ[integ['Location'] == 'PLASMID'])
                      if not integ.empty else 0)
-    n_critical = (len(integ[integ['Risk_level'] == 'CRITICO'])
+    n_critical = (len(integ[integ['Risk_level'] == 'CRITICAL'])
                   if not integ.empty else 0)
     n_vf = len(vfdb_df) if not vfdb_df.empty else 0
 
@@ -1849,19 +1848,19 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
     metrics_html = f"""<div class="metrics-row">
         <div class="metric-card">
             <div class="value">{n_samples}</div>
-            <div class="label">Muestras</div>
+            <div class="label">Samples</div>
         </div>
         <div class="metric-card">
             <div class="value">{total_raw_gb:.1f}</div>
-            <div class="label">Gb Raw</div>
+            <div class="label">Raw Gb</div>
         </div>
         <div class="metric-card">
             <div class="value">{total_clean_gb:.1f}</div>
-            <div class="label">Gb Clean</div>
+            <div class="label">Clean Gb</div>
         </div>
         <div class="metric-card">
             <div class="value">{mean_ret:.1f}%</div>
-            <div class="label">Retencion Media</div>
+            <div class="label">Mean Retention</div>
         </div>
         <div class="metric-card">
             <div class="value" style="color:{unclass_color}">{pct_unclass}%</div>
@@ -1873,13 +1872,13 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         </div>
         <div class="metric-card">
             <div class="value">{n_amr}</div>
-            <div class="label">Genes AMR</div>
+            <div class="label">AMR Genes</div>
         </div>
         <div class="metric-card">
             <div class="value" style="color:{RED if n_critical > 0 else GREEN}">
                 {n_critical}
             </div>
-            <div class="label">Riesgo Critico</div>
+            <div class="label">Critical Risk</div>
         </div>
     </div>"""
 
@@ -1887,17 +1886,17 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
     alerts = ''
     if n_critical > 0 and not integ.empty:
         alert_items = ''
-        for _, r in integ[integ['Risk_level'] == 'CRITICO'].iterrows():
+        for _, r in integ[integ['Risk_level'] == 'CRITICAL'].iterrows():
             alert_items += (
                 f'<p><strong>{r.get("Gene", "")}</strong> '
-                f'({r.get("AMR_class", "")}) en '
+                f'({r.get("AMR_class", "")}) in '
                 f'<em>{r.get("Organism", "")}</em> - '
-                f'plasmido score {r.get("Plasmid_score", 0):.2f} '
+                f'plasmid score {r.get("Plasmid_score", 0):.2f} '
                 f'[{r.get("Sample", "")}]</p>')
         alerts = (
             f'<div class="alert-box">'
-            f'<p><strong>ALERTA: {n_critical} genes AMR criticos en '
-            f'plasmidos (transferibles)</strong></p>{alert_items}</div>')
+            f'<p><strong>ALERT: {n_critical} critical AMR genes on '
+            f'plasmids (transferable)</strong></p>{alert_items}</div>')
 
     # ── Charts ──
     retention_chart = fig_to_html(chart_retention(surv))
@@ -1921,53 +1920,53 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
     if pct_unclass >= 25:
         unclass_warn = (
             f'<span style="color:{RED}; font-weight:700"> '
-            f'(ALERTA: &ge;25%)</span>')
+            f'(ALERT: &ge;25%)</span>')
     elif pct_unclass >= 15:
         unclass_warn = (
             f'<span style="color:{ORANGE}; font-weight:700"> '
-            f'(Atencion: &ge;15%)</span>')
+            f'(Warning: &ge;15%)</span>')
 
     run_stats_table = f"""
     <table class="data-table">
-        <thead><tr><th>Metrica</th><th>Valor</th><th>Evaluacion</th></tr></thead>
+        <thead><tr><th>Metric</th><th>Value</th><th>Assessment</th></tr></thead>
         <tbody>
-            <tr><td>Total reads secuenciados</td>
+            <tr><td>Total reads sequenced</td>
                 <td><strong>{total_run_reads:,}</strong></td><td>-</td></tr>
-            <tr><td>Reads clasificados (con barcode)</td>
+            <tr><td>Classified reads (with barcode)</td>
                 <td>{total_run_reads - unclass_reads:,}</td><td>-</td></tr>
-            <tr><td>Reads unclassified (sin barcode)</td>
+            <tr><td>Unclassified reads (no barcode)</td>
                 <td>{unclass_reads:,}</td>
                 <td style="color:{unclass_color}; font-weight:700">
                     {pct_unclass}%{unclass_warn}</td></tr>
-            <tr><td>Muestras demultiplexadas</td>
+            <tr><td>Demultiplexed samples</td>
                 <td>{n_samples}</td><td>-</td></tr>
-            <tr><td>Gb raw total (muestras)</td>
+            <tr><td>Total raw Gb (samples)</td>
                 <td>{total_raw_gb:.2f}</td><td>-</td></tr>
-            <tr><td>Gb clean total (tras filtrado)</td>
+            <tr><td>Total clean Gb (after filtering)</td>
                 <td>{total_clean_gb:.2f}</td><td>-</td></tr>
-            <tr><td>MAGs recuperados</td>
+            <tr><td>Recovered MAGs</td>
                 <td>{n_mags} ({n_hq} HQ)</td><td>-</td></tr>
-            <tr><td>Genes AMR detectados</td>
-                <td>{n_amr} ({n_plasmid_amr} en plasmidos)</td><td>-</td></tr>
-            <tr><td>Factores de virulencia (VFDB)</td>
+            <tr><td>AMR genes detected</td>
+                <td>{n_amr} ({n_plasmid_amr} on plasmids)</td><td>-</td></tr>
+            <tr><td>Virulence factors (VFDB)</td>
                 <td>{n_vf}</td><td>-</td></tr>
-            <tr><td>Riesgos criticos</td>
+            <tr><td>Critical risks</td>
                 <td style="color:{RED if n_critical > 0 else GREEN};
                     font-weight:700">{n_critical}</td>
-                <td>{'ALERTA' if n_critical > 0 else 'OK'}</td></tr>
+                <td>{'ALERT' if n_critical > 0 else 'OK'}</td></tr>
         </tbody>
     </table>"""
 
     header = build_header(
         org_info, logo_b64,
         f'EpiTaxMAG Report v2 - {run_name}',
-        f'Reporte Integral | {n_samples} muestras | {n_mags} MAGs | '
-        f'{n_amr} genes AMR',
+        f'Comprehensive Report | {n_samples} samples | {n_mags} MAGs | '
+        f'{n_amr} AMR genes',
         date_str)
     footer = build_footer(org_info, date_str)
 
     html = f"""<!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1984,25 +1983,25 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         {build_toc()}
 
         <div class="sample-filter" id="sampleFilter">
-            <strong>Filtrar muestras:</strong>
+            <strong>Filter samples:</strong>
             {build_sample_checkboxes(surv)}
             <p class="note" style="margin-top:0.4rem">
-                Nota: los filtros de muestra solo afectan a las tablas,
-                no a los graficos Plotly.</p>
+                Note: sample filters affect only tables,
+                not Plotly charts.</p>
         </div>
 
         <div class="search-box">
             <input type="text" id="globalSearch"
-                   placeholder="Buscar en todas las tablas: gen, organismo, clase AMR, muestra...">
+                   placeholder="Search across all tables: gene, organism, AMR class, sample...">
         </div>
 
         <!-- 1. Pipeline DAG -->
         <div class="section" id="sec-dag">
             <div class="section-header">
-                1. Pipeline EpiTaxMAG - Flujo de Trabajo (31 pasos)
+                1. EpiTaxMAG Pipeline - Workflow (31 steps)
             </div>
             <div class="section-body">
-                <p>Diagrama completo del pipeline con versiones de software.</p>
+                <p>Complete pipeline diagram with software versions.</p>
                 {html_pipeline_dag()}
             </div>
         </div>
@@ -2010,12 +2009,12 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 2. Run Statistics -->
         <div class="section" id="sec-runstats">
             <div class="section-header">
-                2. Estadisticas de la Carrera de Secuenciacion
+                2. Sequencing Run Statistics
             </div>
             <div class="section-body">
-                <p>Metricas globales de la carrera Nanopore.
-                El porcentaje de lecturas <strong>unclassified</strong>
-                (sin barcode) indica el aprovechamiento del demultiplexado.</p>
+                <p>Global metrics of the Nanopore run.
+                The <strong>unclassified</strong> read percentage
+                (no barcode) reflects demultiplexing efficiency.</p>
                 {run_stats_table}
             </div>
         </div>
@@ -2023,12 +2022,12 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 3. Read Retention -->
         <div class="section" id="sec-retention">
             <div class="section-header">
-                3. Retencion de Lecturas por Muestra
+                3. Read Retention by Sample
             </div>
             <div class="section-body">
-                <p>Comparativa raw vs clean tras Porechop ABI (trimming) +
-                Chopper (filtrado Q/longitud).
-                Celdas verdes: &ge;1 Gb limpio.</p>
+                <p>Raw vs clean comparison after Porechop ABI (trimming) +
+                Chopper (Q/length filtering).
+                Green cells: &ge;1 Gb clean.</p>
                 {html_survival_table(surv)}
                 {retention_chart}
             </div>
@@ -2037,28 +2036,28 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 3b. Screening -->
         <div class="section" id="sec-screening">
             <div class="section-header">
-                4. Screening — FastQ Screen y Alerta Temprana de Organismos de Inter&eacute;s
+                4. Screening — FastQ Screen and Early Alert for Target Organisms
             </div>
             <div class="section-body">
-                <p><strong>FastQ Screen</strong> (panel inferior): distribucion de reads raw mapeados
-                contra genomas de referencia. Barras al 100% con categorias mutuamente excluyentes.
-                <strong>Alerta Temprana</strong> (panel superior): abundancia y cobertura de organismos
-                del panel de vigilancia detectados por Sylph. Botones para alternar genero/especie y
-                abundancia/cobertura.</p>
+                <p><strong>FastQ Screen</strong> (lower panel): distribution of raw reads mapped
+                against reference genomes. 100% bars with mutually exclusive categories.
+                <strong>Early Alert</strong> (upper panel): abundance and coverage of surveillance
+                panel organisms detected by Sylph. Buttons to toggle genus/species and
+                abundance/coverage.</p>
                 {screening_fqs_html}
                 {screening_sylph_html}
-                <p class="note">Lista de organismos configurable en nextflow.config (params.target_organisms).</p>
+                <p class="note">Organism list configurable in nextflow.config (params.target_organisms).</p>
             </div>
         </div>
 
         <!-- 4. Summary Bar Plot -->
         <div class="section" id="sec-summary">
             <div class="section-header">
-                5. Resumen por Muestra
+                5. Per-Sample Summary
             </div>
             <div class="section-body">
-                <p>Conteo comparativo por muestra: MAGs recuperados,
-                genes AMR, factores de virulencia, plasmidos e integrones.</p>
+                <p>Per-sample comparative count: recovered MAGs,
+                AMR genes, virulence factors, plasmids and integrons.</p>
                 {summary_chart}
             </div>
         </div>
@@ -2066,11 +2065,11 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 5. Assembly & Binning -->
         <div class="section" id="sec-assembly">
             <div class="section-header">
-                6. Ensamblaje y Metricas de Binning
+                6. Assembly and Binning Metrics
             </div>
             <div class="section-body">
-                <p>Metricas de ensamblaje por QUAST y conteo de bins por
-                algoritmo de binning (MetaBAT2, MaxBin2, SemiBin2, DAS Tool).</p>
+                <p>Assembly metrics from QUAST and bin counts per
+                binning algorithm (MetaBAT2, MaxBin2, SemiBin2, DAS Tool).</p>
                 {html_assembly_table(quast_df)}
                 {bins_chart}
             </div>
@@ -2079,12 +2078,12 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 6. MAG Catalog -->
         <div class="section" id="sec-mags">
             <div class="section-header">
-                7. Catalogo de MAGs
+                7. MAG Catalog
             </div>
             <div class="section-body">
-                <p>MAGs recuperados por MetaBAT2 + MaxBin2 + SemiBin2,
-                refinados por DAS Tool, evaluados por CheckM2 y clasificados
-                por GTDB-Tk (r232). tRNA/rRNA de Bakta.</p>
+                <p>MAGs recovered by MetaBAT2 + MaxBin2 + SemiBin2,
+                refined by DAS Tool, evaluated by CheckM2 and classified
+                by GTDB-Tk (r232). tRNA/rRNA from Bakta.</p>
                 {html_mag_catalog(checkm2, tax_df, bakta_df)}
             </div>
         </div>
@@ -2092,11 +2091,11 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 7. Taxonomy Stacked Bar -->
         <div class="section" id="sec-taxonomy">
             <div class="section-header">
-                8. Composicion Taxonomica por Muestra
+                8. Per-Sample Taxonomic Composition
             </div>
             <div class="section-body">
-                <p>Distribucion de organismos por muestra coloreada por clase
-                taxonomica (GTDB-Tk r232). Top 10 clases + Other.</p>
+                <p>Per-sample organism distribution colored by taxonomic
+                class (GTDB-Tk r232). Top 10 classes + Other.</p>
                 {taxonomy_chart}
             </div>
         </div>
@@ -2104,12 +2103,12 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 8. AMR Detail -->
         <div class="section" id="sec-amr">
             <div class="section-header">
-                9. Resistencia Antimicrobiana (AMR) en MAGs
+                9. Antimicrobial Resistance (AMR) in MAGs
             </div>
             <div class="section-body">
-                <p>Genes AMR detectados por AMRFinderPlus. Ubicacion
-                cromosoma/plasmido por geNomad. Score de confianza compuesto
-                (identidad + cobertura + metodo + concordancia + calidad MAG).</p>
+                <p>AMR genes detected by AMRFinderPlus. Chromosome/plasmid
+                location by geNomad. Composite confidence score
+                (identity + coverage + method + concordance + MAG quality).</p>
                 {html_amr_detail(integ, amr_mags)}
             </div>
         </div>
@@ -2117,11 +2116,11 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 9. AMR Heatmap -->
         <div class="section" id="sec-heatmap">
             <div class="section-header">
-                10. Heatmap AMR: Organismos vs Clases de Resistencia
+                10. AMR Heatmap: Organisms vs Resistance Classes
             </div>
             <div class="section-body">
-                <p>Intensidad = numero de genes AMR por combinacion
-                organismo-clase.</p>
+                <p>Intensity = number of AMR genes per organism-class
+                combination.</p>
                 {heatmap_chart}
             </div>
         </div>
@@ -2129,12 +2128,12 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 10. Concordance KMA-MAG -->
         <div class="section" id="sec-concordance">
             <div class="section-header">
-                11. Concordancia KMA Reads vs MAG Contigs
+                11. Concordance: KMA Reads vs MAG Contigs
             </div>
             <div class="section-body">
-                <p>Comparacion de genes AMR detectados en reads (KMA/ResFinder)
-                vs contigs ensamblados (AMRFinderPlus). Deteccion en ambos =
-                maxima confianza.</p>
+                <p>Comparison of AMR genes detected in reads (KMA/ResFinder)
+                vs assembled contigs (AMRFinderPlus). Detection in both =
+                maximum confidence.</p>
                 {html_concordance_table(conc)}
             </div>
         </div>
@@ -2142,12 +2141,12 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 11. Virulence VFDB -->
         <div class="section" id="sec-vfdb">
             <div class="section-header">
-                12. Factores de Virulencia (VFDB)
+                12. Virulence Factors (VFDB)
             </div>
             <div class="section-body">
-                <p>Factores de virulencia detectados por ABRicate contra la
-                base de datos VFDB (Virulence Factor Database).
-                {n_vf} hits totales.</p>
+                <p>Virulence factors detected by ABRicate against the
+                VFDB database (Virulence Factor Database).
+                {n_vf} total hits.</p>
                 {html_vfdb_table(vfdb_df)}
             </div>
         </div>
@@ -2155,11 +2154,11 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 12. Plasmids -->
         <div class="section" id="sec-plasmids">
             <div class="section-header">
-                13. Plasmidos (geNomad)
+                13. Plasmids (geNomad)
             </div>
             <div class="section-body">
-                <p>Contigs clasificados como plasmidicos por geNomad, con
-                genes AMR asociados. Score &ge;0.9 = plasmido confirmado.</p>
+                <p>Contigs classified as plasmidic by geNomad, with
+                associated AMR genes. Score &ge;0.9 = confirmed plasmid.</p>
                 {html_plasmid_table(plasmids_df, integ)}
             </div>
         </div>
@@ -2167,11 +2166,11 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 13. Integrons -->
         <div class="section" id="sec-integrons">
             <div class="section-header">
-                14. Integrones (IntegronFinder)
+                14. Integrons (IntegronFinder)
             </div>
             <div class="section-body">
-                <p>Resumen de integrones detectados por IntegronFinder.
-                Solo se muestran MAGs con al menos un integron o integrasa.</p>
+                <p>Summary of integrons detected by IntegronFinder.
+                Only MAGs with at least one integron or integrase are shown.</p>
                 {html_integron_table(integron_summary)}
             </div>
         </div>
@@ -2179,17 +2178,17 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 14. Risk Assessment -->
         <div class="section" id="sec-risk">
             <div class="section-header">
-                15. Evaluacion de Riesgo AMR
+                15. AMR Risk Assessment
             </div>
             <div class="section-body">
                 {risk_chart}
                 <div class="note" style="margin-top:1rem">
-                    <strong>Niveles de riesgo:</strong><br>
-                    CRITICO = resistencia clave (beta-lactam, quinolona,
-                    colistina) en plasmido<br>
-                    ALTO = cualquier AMR en plasmido (transferible)<br>
-                    MEDIO = resistencia clave en cromosoma<br>
-                    BAJO = AMR no critica en cromosoma
+                    <strong>Risk levels:</strong><br>
+                    CRITICAL = key resistance (beta-lactam, quinolone,
+                    colistin) on plasmid<br>
+                    HIGH = any AMR on plasmid (transferable)<br>
+                    MEDIUM = key resistance on chromosome<br>
+                    LOW = non-critical AMR on chromosome
                 </div>
                 {alerts}
             </div>
@@ -2198,11 +2197,11 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
         <!-- 15. Software Versions -->
         <div class="section" id="sec-software">
             <div class="section-header">
-                16. Versiones de Software
+                16. Software Versions
             </div>
             <div class="section-body">
-                <p>{len(SOFTWARE_VERSIONS)} herramientas utilizadas en el
-                pipeline EpiTaxMAG.</p>
+                <p>{len(SOFTWARE_VERSIONS)} tools used in the
+                EpiTaxMAG pipeline.</p>
                 {html_software_table()}
             </div>
         </div>

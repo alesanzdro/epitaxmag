@@ -1,10 +1,10 @@
 #!/bin/bash
-# IntegronFinder en paralelo — 4 muestras simultaneas
-# Uso: bash bin/run_integronfinder_parallel.sh results/260226_EPIM232
+# IntegronFinder in parallel — 4 samples concurrently
+# Usage: bash bin/run_integronfinder_parallel.sh results/260226_EPIM232
 
 set -euo pipefail
 
-RESULTS="${1:?Uso: bash bin/run_integronfinder_parallel.sh results/<run>}"
+RESULTS="${1:?Usage: bash bin/run_integronfinder_parallel.sh results/<run>}"
 THREADS_PER_JOB="${2:-12}"
 MAX_PARALLEL="${3:-4}"
 
@@ -16,7 +16,7 @@ TMPBASE="$RESULTS/../work/tmp"
 
 mkdir -p "$OUTDIR" "$TMPBASE"
 
-echo "  IntegronFinder paralelo: $MAX_PARALLEL jobs x $THREADS_PER_JOB threads"
+echo "  IntegronFinder parallel: $MAX_PARALLEL jobs x $THREADS_PER_JOB threads"
 echo ""
 
 RUNNING=0
@@ -25,17 +25,17 @@ for asm in "$RESULTS"/15_polish_medaka/*.polished.fasta; do
     sample=$(basename "$asm" .polished.fasta)
     out_dir="$OUTDIR/$sample"
 
-    # Skip si ya tiene resultados completos
+    # Skip if already complete
     if [ -d "$out_dir" ] && find "$out_dir" -name "*.integrons" -size +0 2>/dev/null | grep -q .; then
-        echo "  $sample: ya completado, saltando"
+        echo "  $sample: already complete, skipping"
         continue
     fi
 
-    # Limpiar resultados parciales
+    # Wipe any partial results
     rm -rf "$out_dir"
     mkdir -p "$out_dir"
 
-    echo "  $sample: lanzando IntegronFinder..."
+    echo "  $sample: launching IntegronFinder..."
     (
         export TMPDIR="$TMPBASE/intfinder_${sample}"
         mkdir -p "$TMPDIR"
@@ -46,7 +46,7 @@ for asm in "$RESULTS"/15_polish_medaka/*.polished.fasta; do
                 --outdir "$out_dir" \
                 "$asm" 2>"$out_dir/integronfinder.log"
         rm -rf "$TMPDIR"
-        echo "  $sample: COMPLETADO"
+        echo "  $sample: DONE"
     ) &
 
     RUNNING=$((RUNNING + 1))
@@ -58,5 +58,5 @@ done
 
 wait
 echo ""
-echo "  IntegronFinder completado para todas las muestras"
-echo "  Resultados en: $OUTDIR"
+echo "  IntegronFinder finished for all samples"
+echo "  Results in: $OUTDIR"

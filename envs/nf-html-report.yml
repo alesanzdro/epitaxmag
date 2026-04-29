@@ -1,4 +1,4 @@
-# Entorno ligero para generación de reporte HTML interactivo con Plotly
+# Lightweight environment for the interactive Plotly HTML report.
 # EpiTaxMAG — FISABIO EPIMOL
 name: nf-metatax-html
 channels:

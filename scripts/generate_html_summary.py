@@ -2,11 +2,11 @@
 """
 generate_html_summary.py
 ─────────────────────────────────────────────────────────────────────
-Genera un reporte HTML interactivo con resumen completo del pipeline
-metagenómico Nanopore: métricas de supervivencia, taxonomía integrada,
-viabilidad de MAGs, curvas de rarefacción y conclusión logística.
+Generate an interactive HTML report with a full summary of the
+Nanopore metagenomic pipeline: read survival metrics, integrated
+taxonomy, MAG viability, rarefaction curves and logistic conclusion.
 
-Uso:
+Usage:
     python3 generate_html_summary.py \
         --qc-raw qc_raw_metrics.csv \
         --qc-filtered qc_filtered_metrics.csv \
@@ -31,7 +31,7 @@ from datetime import datetime
 
 warnings.filterwarnings('ignore')
 
-# ─── Paleta FISABIO ─────────────────────────────────────────────────
+# ─── FISABIO Palette ────────────────────────────────────────────────
 
 PALETTE = [
     '#2C5F8A', '#E05C2A', '#28A745', '#9B59B6', '#F39C12',
@@ -50,7 +50,7 @@ GREY   = '#6C757D'
 # ════════════════════════════════════════════════════════════════════
 
 def parse_qc_csv(path):
-    """Parse QC CSV con autodetección de separador y decimal europeo."""
+    """Parse QC CSV with separator auto-detection and European decimal format."""
     with open(path) as f:
         header = f.readline()
     sep = '\t' if '\t' in header else (';' if ';' in header else ',')
@@ -58,7 +58,7 @@ def parse_qc_csv(path):
     for col in df.columns:
         if col == 'Sample':
             continue
-        # Convertir todo a string, reemplazar coma decimal, y forzar numérico
+        # Convert everything to string, replace decimal comma, and force numeric
         df[col] = pd.to_numeric(
             df[col].astype(str).str.replace(',', '.'), errors='coerce'
         )
@@ -66,7 +66,7 @@ def parse_qc_csv(path):
 
 
 def parse_kraken2_report(path):
-    """Parse Kraken2 standard report (6 columnas TSV)."""
+    """Parse Kraken2 standard report (6 TSV columns)."""
     rows = []
     with open(path) as f:
         for line in f:
@@ -105,7 +105,7 @@ def parse_kaiju_species(path):
 
 
 def parse_sylph_profile(path):
-    """Parse Sylph profile TSV y clasifica por DB."""
+    """Parse Sylph profile TSV and classify by DB."""
     df = pd.read_csv(path, sep='\t')
 
     def extract_species(cn):
@@ -142,7 +142,7 @@ def parse_sylph_profile(path):
 
 
 def parse_fastqscreen_results(screen_files):
-    """Parse FastQ Screen _screen.txt files (todos los del directorio de trabajo)."""
+    """Parse FastQ Screen _screen.txt files (all files in the working directory)."""
     all_data = []
     for fpath in sorted(screen_files):
         sample = os.path.basename(fpath).replace('_screen.txt', '')
@@ -238,11 +238,11 @@ def parse_phenotypic_results(path):
 
 
 # ════════════════════════════════════════════════════════════════════
-# ANÁLISIS
+# ANALYSIS
 # ════════════════════════════════════════════════════════════════════
 
 def compute_survival(qc_raw, qc_filtered):
-    """Tabla comparativa: reads y Gb antes/después de filtrado."""
+    """Comparative table: reads and Gb before/after filtering."""
     raw = qc_raw[['Sample', 'total_reads', 'mean_length']].copy()
     raw.columns = ['Sample', 'raw_reads', 'raw_mean_len']
     raw['raw_gb'] = raw['raw_reads'] * raw['raw_mean_len'] / 1e9
@@ -264,7 +264,7 @@ def compute_survival(qc_raw, qc_filtered):
 
 
 def compute_mag_viability(sylph_df, survival_df, genome_size_mb, min_coverage):
-    """Estima cobertura por organismo y evalúa viabilidad para MAGs."""
+    """Estimate coverage per organism and assess MAG viability."""
     results = []
     bact = sylph_df[sylph_df['DB'] == 'Bacteria/Archaea'].copy()
 
@@ -285,7 +285,7 @@ def compute_mag_viability(sylph_df, survival_df, genome_size_mb, min_coverage):
 
         for _, row in grp.iterrows():
             abund_frac = row['abund'] / 100.0
-            # clean_Mb * fracción_abundancia / genoma_Mb = cobertura estimada
+            # clean_Mb * abundance_fraction / genome_Mb = estimated coverage
             est_cov = clean_gb * 1000 * abund_frac / genome_size_mb
 
             results.append({
@@ -302,7 +302,7 @@ def compute_mag_viability(sylph_df, survival_df, genome_size_mb, min_coverage):
 
 
 def simulate_rarefaction(abundances, n_steps=50, n_rep=10, seed=42):
-    """Simula curva de rarefacción desde abundancias relativas."""
+    """Simulate a rarefaction curve from relative abundances."""
     rng = np.random.default_rng(seed)
     props = abundances / abundances.sum()
     n_total = len(props)
@@ -320,11 +320,11 @@ def simulate_rarefaction(abundances, n_steps=50, n_rep=10, seed=42):
 
 
 # ════════════════════════════════════════════════════════════════════
-# GRÁFICOS PLOTLY
+# PLOTLY CHARTS
 # ════════════════════════════════════════════════════════════════════
 
 def chart_survival(survival_df):
-    """Gráfico comparativo raw vs clean (reads y Gb)."""
+    """Comparative chart raw vs clean (reads and Gb)."""
     fig = make_subplots(
         rows=1, cols=2,
         subplot_titles=['Reads', 'Gigabases (Gb)'],
@@ -370,7 +370,7 @@ def chart_survival(survival_df):
 
 def chart_taxonomy_sample(sample, bracken_df=None, kraken_df=None, kaiju_df=None,
                           top_n=10):
-    """Barras horizontales: top especies de cada herramienta para una muestra."""
+    """Horizontal bars: top species per tool for a sample."""
     data = []
 
     if bracken_df is not None and not bracken_df.empty:
@@ -441,7 +441,7 @@ def chart_taxonomy_sample(sample, bracken_df=None, kraken_df=None, kaiju_df=None
 
 
 def chart_rarefaction(sylph_df, samples):
-    """Curvas de rarefacción por muestra (estimadas desde Sylph GTDB)."""
+    """Per-sample rarefaction curves (estimated from Sylph GTDB)."""
     fig = go.Figure()
     bact = sylph_df[sylph_df['DB'] == 'Bacteria/Archaea']
 
@@ -461,7 +461,7 @@ def chart_rarefaction(sylph_df, samples):
         )
         color = PALETTE[i % len(PALETTE)]
 
-        # Banda de confianza
+        # Confidence band
         r, g, b = int(color[1:3], 16), int(color[3:5], 16), int(color[5:7], 16)
         fig.add_trace(go.Scatter(
             x=np.concatenate([steps, steps[::-1]]),
@@ -470,7 +470,7 @@ def chart_rarefaction(sylph_df, samples):
             fillcolor=f'rgba({r},{g},{b},0.1)',
             line=dict(width=0), showlegend=False, hoverinfo='skip'
         ))
-        # Línea media
+        # Mean line
         fig.add_trace(go.Scatter(
             x=steps, y=means, mode='lines',
             name=f'{sample} ({n_total} spp.)',
@@ -496,7 +496,7 @@ def chart_rarefaction(sylph_df, samples):
 
 
 def chart_mag_viability(viability_df, min_coverage):
-    """Gráfico de cobertura efectiva por organismo, con umbral de MAG."""
+    """Per-organism effective coverage chart with MAG threshold."""
     if viability_df.empty:
         return None
 
@@ -593,7 +593,7 @@ def chart_kma_amr(kma_df, min_identity=80, min_coverage=60):
     if filt.empty:
         return None
 
-    # Top 20 genes por profundidad global
+    # Top 20 genes by global depth
     top_genes = filt.groupby('Gene')['Depth'].max().nlargest(20).index.tolist()
     show = filt[filt['Gene'].isin(top_genes)].copy()
 
@@ -643,7 +643,7 @@ def classify_amr_class(gene_name):
     return 'Other'
 
 
-# Paleta fija para clases AMR (consistente entre runs)
+# Fixed palette for AMR classes (consistent across runs)
 AMR_CLASS_COLORS = {
     'Beta-lactam': '#E74C3C', 'Aminoglycoside': '#3498DB', 'Macrolide': '#2ECC71',
     'Tetracycline': '#F39C12', 'Quinolone': '#9B59B6', 'Phenicol': '#1ABC9C',
@@ -666,7 +666,7 @@ def chart_amr_classes(kma_df, min_identity=80, min_coverage=60):
     filt['Class'] = filt['Gene'].apply(classify_amr_class)
     pivot = filt.groupby(['Sample', 'Class']).size().unstack(fill_value=0)
 
-    # Ordenar clases por total descendente
+    # Sort classes by descending total
     class_order = pivot.sum().sort_values(ascending=False).index.tolist()
     samples = sorted(pivot.index.tolist())
 
@@ -696,7 +696,7 @@ def chart_amr_classes(kma_df, min_identity=80, min_coverage=60):
 
 
 def chart_whittaker(sylph_df, samples):
-    """Curvas rank-abundance (Whittaker) desde datos Sylph."""
+    """Rank-abundance (Whittaker) curves from Sylph data."""
     if sylph_df.empty:
         return None
     bact = sylph_df[sylph_df['DB'] == 'Bacteria/Archaea']
@@ -733,14 +733,14 @@ def chart_whittaker(sylph_df, samples):
 
 
 def chart_depth_candidates(viability_df, min_coverage):
-    """Dot-plot de cobertura estimada por especie × muestra con umbral de ensamblaje."""
+    """Dot-plot of estimated coverage per species x sample with assembly threshold."""
     if viability_df.empty:
         return None
-    # Filtrar a >= 1x para reducir ruido
+    # Filter to >= 1x to reduce noise
     df = viability_df[viability_df['Est_cov'] >= 1].copy()
     if df.empty:
         return None
-    # Tomar top N por muestra para no saturar
+    # Take top N per sample to avoid saturation
     parts = []
     for sample in df['Sample'].unique():
         parts.append(df[df['Sample'] == sample].nlargest(20, 'Est_cov'))
@@ -760,7 +760,7 @@ def chart_depth_candidates(viability_df, min_coverage):
                 '<extra></extra>'
             ),
         ))
-    # Linea umbral 30x
+    # Threshold line at 30x
     fig.add_vline(x=min_coverage, line_dash='dash', line_color=RED, line_width=2,
                   annotation_text=f'{min_coverage:.0f}x', annotation_position='top right',
                   annotation_font_color=RED)
@@ -778,7 +778,7 @@ def chart_depth_candidates(viability_df, min_coverage):
 
 
 def chart_phenotypic(pheno_df):
-    """Heatmap de breadth ≥1x por organismo × muestra con minimap2."""
+    """Heatmap of breadth >=1x per organism x sample with minimap2."""
     if pheno_df.empty:
         return None
 
@@ -838,12 +838,12 @@ def chart_phenotypic(pheno_df):
 
 
 def build_phenotypic_table(pheno_df):
-    """Tabla HTML con métricas de cobertura fenotípica por muestra × organismo."""
+    """HTML table with phenotypic coverage metrics per sample x organism."""
     if pheno_df.empty:
         return '<p class="no-data">No target organisms provided (--phenotypic_targets).</p>'
 
     def breadth_color(val):
-        """Color de fondo según breadth of coverage."""
+        """Background color based on breadth of coverage."""
         if val >= 70: return 'background:#2E7D32; color:white'
         if val >= 30: return 'background:#66BB6A; color:white'
         if val >= 10: return 'background:#FFE082'
@@ -884,18 +884,18 @@ def build_phenotypic_table(pheno_df):
 
 
 # ════════════════════════════════════════════════════════════════════
-# TABLAS HTML
+# HTML TABLES
 # ════════════════════════════════════════════════════════════════════
 
 def fig_to_html(fig):
-    """Convierte figura Plotly a div HTML (sin JS incluido)."""
+    """Convert a Plotly figure to an HTML div (without embedded JS)."""
     if fig is None:
         return '<p class="no-data">No data available for this section.</p>'
     return fig.to_html(full_html=False, include_plotlyjs=False)
 
 
 def build_survival_table(survival_df):
-    """Tabla HTML de métricas de supervivencia."""
+    """HTML table of read survival metrics."""
     rows_html = ''
     for _, r in survival_df.iterrows():
         pct_cls = 'good' if r['pct_reads'] >= 70 else ('warn' if r['pct_reads'] >= 50 else 'bad')
@@ -912,7 +912,7 @@ def build_survival_table(survival_df):
             f'</tr>\n'
         )
 
-    # Fila de totales
+    # Totals row
     tot = survival_df[['raw_reads', 'raw_gb', 'clean_reads', 'clean_gb']].sum()
     t_pct_r = (tot['clean_reads'] / tot['raw_reads'] * 100) if tot['raw_reads'] > 0 else 0
     t_pct_g = (tot['clean_gb'] / tot['raw_gb'] * 100) if tot['raw_gb'] > 0 else 0
@@ -941,7 +941,7 @@ def build_survival_table(survival_df):
 
 
 def build_viability_table(viability_df, min_coverage):
-    """Tabla HTML de viabilidad para MAGs."""
+    """HTML table of MAG viability."""
     if viability_df.empty:
         return '<p class="no-data">No viability data available.</p>'
 
@@ -988,7 +988,7 @@ def build_viability_table(viability_df, min_coverage):
 
 
 def build_conclusion(survival_df, viability_df, min_coverage):
-    """Genera texto dinámico de conclusión logística."""
+    """Generate dynamic logistic conclusion text."""
     n_samples = len(survival_df)
     n_above_1gb = int((survival_df['clean_gb'] >= 1.0).sum())
     total_clean_gb = survival_df['clean_gb'].sum()
@@ -1043,7 +1043,7 @@ def build_conclusion(survival_df, viability_df, min_coverage):
 
 
 def build_fastqscreen_table(fqs_df):
-    """Tabla resumen de FastQ Screen: genomas con mayor % de mapping."""
+    """FastQ Screen summary table: genomes with the highest mapping %."""
     if fqs_df.empty:
         return '<p class="no-data">No FastQ Screen data available.</p>'
 
@@ -1081,7 +1081,7 @@ def build_fastqscreen_table(fqs_df):
 
 
 def build_kma_table(kma_df, min_identity=80, min_coverage=60):
-    """Tabla de genes de resistencia detectados por KMA."""
+    """Table of resistance genes detected by KMA."""
     if kma_df.empty:
         return '<p class="no-data">No AMR resistance data available.</p>'
 
@@ -1124,10 +1124,10 @@ def build_kma_table(kma_df, min_identity=80, min_coverage=60):
 
 
 # ════════════════════════════════════════════════════════════════════
-# ENSAMBLAJE HTML
+# HTML ASSEMBLY
 # ════════════════════════════════════════════════════════════════════
 
-# CSS como constante (no f-string) para evitar conflictos con {}
+# CSS as a constant (not an f-string) to avoid conflicts with {}
 HTML_CSS = """<style>
 :root {
     --blue: #2C5F8A; --blue-light: #5B9ABF; --orange: #E05C2A;
@@ -1233,7 +1233,7 @@ body {
 
 
 def build_html(sections, run_name, plotly_js):
-    """Ensambla el reporte HTML completo y autocontenido."""
+    """Assemble the complete, self-contained HTML report."""
     date_str = datetime.now().strftime('%d/%m/%Y %H:%M')
     min_q = sections['min_quality']
     min_l = sections['min_length']
@@ -1370,7 +1370,7 @@ def build_html(sections, run_name, plotly_js):
     </div>
 
     <script>
-    // ── Tablas ordenables ──
+    // ── Sortable tables ──
     document.querySelectorAll('.data-table th').forEach(function(th) {{
         th.addEventListener('click', function() {{
             var table = th.closest('table');
@@ -1393,7 +1393,7 @@ def build_html(sections, run_name, plotly_js):
         }});
     }});
 
-    // ── Filtro de muestras ──
+    // ── Sample filter ──
     var allSamples = [];
     document.querySelectorAll('.data-table tbody tr').forEach(function(tr) {{
         var s = tr.cells[0] ? tr.cells[0].textContent.trim() : '';
@@ -1416,7 +1416,7 @@ def build_html(sections, run_name, plotly_js):
     function applySampleFilter() {{
         var checked = Array.from(document.querySelectorAll('#sample-filter input:checked'))
             .map(function(cb) {{ return cb.value; }});
-        // Filtrar filas de tablas
+        // Filter table rows
         document.querySelectorAll('.data-table tbody tr').forEach(function(tr) {{
             if (tr.classList.contains('total-row')) return;
             var cell = tr.cells[0];
@@ -1424,7 +1424,7 @@ def build_html(sections, run_name, plotly_js):
             var s = cell.textContent.trim();
             tr.style.display = checked.indexOf(s) >= 0 ? '' : 'none';
         }});
-        // Filtrar gráficos por muestra
+        // Filter per-sample charts
         document.querySelectorAll('[data-sample-chart]').forEach(function(el) {{
             var s = el.getAttribute('data-sample-chart');
             el.style.display = checked.indexOf(s) >= 0 ? '' : 'none';
@@ -1464,14 +1464,14 @@ def main():
 
     print(f'[INFO] Generating report for run: {args.run_name}')
 
-    # ── Cargar datos ─────────────────────────────────────────────────
+    # ── Load data ────────────────────────────────────────────────────
     qc_raw = parse_qc_csv(args.qc_raw)
     qc_filtered = parse_qc_csv(args.qc_filtered)
     sylph_df = parse_sylph_profile(args.sylph)
     samples = sorted(qc_filtered['Sample'].unique())
     print(f'[INFO] {len(samples)} samples detected')
 
-    # Determinar directorios fuente (--results-dir o cwd)
+    # Determine source directories (--results-dir or cwd)
     rd = args.results_dir
     kraken2_files = sorted(glob.glob(f'{rd}/07_tax_kraken2/*.kraken2.report') if rd
                            else glob.glob('*.kraken2.report'))
@@ -1510,7 +1510,7 @@ def main():
                              (kma_df['Template_Coverage'] >= 60)]) if not kma_df.empty else 0
     print(f'[INFO] KMA: {len(kma_res_files)} files, {n_kma_genes} AMR genes (id>=80%, cov>=60%)')
 
-    # Cargar verificación fenotípica (opcional)
+    # Load phenotypic verification (optional)
     pheno_df = parse_phenotypic_results(args.phenotypic) if args.phenotypic else pd.DataFrame()
     if not pheno_df.empty:
         n_org = pheno_df['species'].nunique()
@@ -1518,18 +1518,18 @@ def main():
     else:
         print('[INFO] Phenotypic: not provided')
 
-    # ── Análisis ─────────────────────────────────────────────────────
+    # ── Analysis ─────────────────────────────────────────────────────
     survival = compute_survival(qc_raw, qc_filtered)
     viability = compute_mag_viability(
         sylph_df, survival, args.genome_size, args.min_coverage)
 
-    # ── Gráficos ─────────────────────────────────────────────────────
+    # ── Charts ───────────────────────────────────────────────────────
     survival_chart = fig_to_html(chart_survival(survival))
 
     # FastQ Screen
     fastqscreen_chart = fig_to_html(chart_fastqscreen(fqs_df))
 
-    # Taxonomía por muestra (envuelto en div filtrable)
+    # Per-sample taxonomy (wrapped in a filterable div)
     tax_parts = []
     for sample in samples:
         fig = chart_taxonomy_sample(
@@ -1551,14 +1551,14 @@ def main():
     rarefaction_html = fig_to_html(chart_rarefaction(sylph_df, samples))
     viability_chart = fig_to_html(chart_mag_viability(viability, args.min_coverage))
 
-    # Candidatos MAG (dot-plot con umbral 30x)
+    # MAG candidates (dot-plot with 30x threshold)
     depth_chart = fig_to_html(chart_depth_candidates(viability, args.min_coverage))
 
     # KMA AMR
     kma_chart = fig_to_html(chart_kma_amr(kma_df))
     amr_class_chart = fig_to_html(chart_amr_classes(kma_df))
 
-    # Verificación fenotípica (opcional)
+    # Phenotypic verification (optional)
     if not pheno_df.empty:
         phenotypic_chart = fig_to_html(chart_phenotypic(pheno_df))
         phenotypic_table = build_phenotypic_table(pheno_df)

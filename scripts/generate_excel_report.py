@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 """
 generate_excel_report.py
-Genera un Excel exhaustivo multi-hoja con TODOS los datos de EpiTaxMAG.
+Generate a comprehensive multi-sheet Excel with ALL EpiTaxMAG data.
 
-Hojas:
-  0. Resumen del Run
-  1. Retencion de Lecturas
-  2. Catalogo de MAGs (taxonomia + calidad + metricas)
-  3. AMR Detallado (todos los campos AMRFinderPlus)
-  4. AMR por Clase (matriz organismos x clases)
-  5. Concordancia KMA vs MAGs
-  6. Plasmidos (geNomad + integracion)
-  7. Evaluacion de Riesgo (consolidado)
-  8. Virulencia y Stress (AMRFinderPlus --plus)
-  9. Software y Versiones
+Sheets:
+  0. Run Summary
+  1. Read Retention
+  2. MAG Catalog (taxonomy + quality + metrics)
+  3. Detailed AMR (all AMRFinderPlus fields)
+  4. AMR by Class (organisms x classes matrix)
+  5. KMA vs MAGs Concordance
+  6. Plasmids (geNomad + integration)
+  7. Risk Assessment (consolidated)
+  8. Virulence and Stress (AMRFinderPlus --plus)
+  9. Software and Versions
 
-Uso:
+Usage:
   python3 scripts/generate_excel_report.py \
       --results-dir results/260226_EPIM232 \
       --run-name 260226_EPIM232 \
@@ -34,7 +34,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 
 warnings.filterwarnings('ignore')
 
-# Colores
+# Colors
 BLUE_FILL = PatternFill(start_color='2C5F8A', end_color='2C5F8A', fill_type='solid')
 LBLUE_FILL = PatternFill(start_color='D6E8F5', end_color='D6E8F5', fill_type='solid')
 GREEN_FILL = PatternFill(start_color='C8E6C9', end_color='C8E6C9', fill_type='solid')
@@ -382,32 +382,32 @@ def create_workbook(data, run_name, run_stats):
     wb = Workbook()
     date_str = datetime.now().strftime('%Y-%m-%d %H:%M')
 
-    # ── HOJA 0: Resumen ──────────────────────────────────────
+    # ── SHEET 0: Summary ──────────────────────────────────────
     ws = wb.active
-    ws.title = 'Resumen'
+    ws.title = 'Summary'
     ws.sheet_properties.tabColor = '2C5F8A'
 
     info = [
         ('EpiTaxMAG Report', ''),
         ('Run', run_name),
-        ('Fecha', date_str),
+        ('Date', date_str),
         ('', ''),
-        ('ESTADISTICAS DE CARRERA', ''),
-        ('Total reads secuenciados', f"{run_stats['total_reads']:,}"),
-        ('Reads clasificados (barcode)', f"{run_stats['classified_reads']:,}"),
-        ('Reads unclassified', f"{run_stats['unclassified_reads']:,}"),
+        ('RUN STATISTICS', ''),
+        ('Total reads sequenced', f"{run_stats['total_reads']:,}"),
+        ('Classified reads (barcode)', f"{run_stats['classified_reads']:,}"),
+        ('Unclassified reads', f"{run_stats['unclassified_reads']:,}"),
         ('% Unclassified', f"{run_stats['pct_unclassified']}%"),
         ('', ''),
-        ('DATOS PROCESADOS', ''),
+        ('PROCESSED DATA', ''),
     ]
     surv = data['survival']
     if not surv.empty:
         info.extend([
-            ('Muestras', len(surv)),
-            ('Gb raw total', f"{surv['Raw_Gb'].sum():.2f}"),
-            ('Gb clean total', f"{surv['Clean_Gb'].sum():.2f}"),
-            ('Retencion media', f"{surv['Retention_%'].mean():.1f}%"),
-            ('Retencion std', f"{surv['Retention_%'].std():.1f}%"),
+            ('Samples', len(surv)),
+            ('Total raw Gb', f"{surv['Raw_Gb'].sum():.2f}"),
+            ('Total clean Gb', f"{surv['Clean_Gb'].sum():.2f}"),
+            ('Mean retention', f"{surv['Retention_%'].mean():.1f}%"),
+            ('Retention std', f"{surv['Retention_%'].std():.1f}%"),
         ])
     checkm2 = data['checkm2']
     if not checkm2.empty:
@@ -424,10 +424,10 @@ def create_workbook(data, run_name, run_stats):
         info.extend([
             ('', ''),
             ('AMR', ''),
-            ('Total genes AMR', len(integ)),
-            ('En plasmido', len(integ[integ['Location'] == 'PLASMID'])),
-            ('Riesgo CRITICO', len(integ[integ['Risk_level'] == 'CRITICO'])),
-            ('Riesgo ALTO', len(integ[integ['Risk_level'] == 'ALTO'])),
+            ('Total AMR genes', len(integ)),
+            ('On plasmid', len(integ[integ['Location'] == 'PLASMID'])),
+            ('CRITICAL risk', len(integ[integ['Risk_level'] == 'CRITICAL'])),
+            ('HIGH risk', len(integ[integ['Risk_level'] == 'HIGH'])),
         ])
 
     for row_idx, (k, v) in enumerate(info, 1):
@@ -436,13 +436,13 @@ def create_workbook(data, run_name, run_stats):
     ws.column_dimensions['A'].width = 30
     ws.column_dimensions['B'].width = 25
 
-    # ── HOJA 1: Retencion ────────────────────────────────────
+    # ── SHEET 1: Retention ────────────────────────────────────
     if not surv.empty:
-        ws1 = wb.create_sheet('Retencion')
+        ws1 = wb.create_sheet('Retention')
         ws1.sheet_properties.tabColor = '28A745'
         write_df_to_sheet(ws1, surv)
 
-    # ── HOJA 2: Catalogo MAGs ────────────────────────────────
+    # ── SHEET 2: MAG Catalog ──────────────────────────────────
     tax = data['taxonomy']
     if not checkm2.empty:
         ws2 = wb.create_sheet('MAGs')
@@ -454,10 +454,10 @@ def create_workbook(data, run_name, run_stats):
         mags = mags.fillna('')
         write_df_to_sheet(ws2, mags)
 
-    # ── HOJA 3: AMR Detallado (TODOS los campos) ────────────
+    # ── SHEET 3: Detailed AMR (ALL fields) ────────────────────
     amr_full = data['amr_full']
     if not amr_full.empty:
-        ws3 = wb.create_sheet('AMR Detallado')
+        ws3 = wb.create_sheet('Detailed AMR')
         ws3.sheet_properties.tabColor = 'E74C3C'
         # Add taxonomy info
         if not tax.empty:
@@ -497,24 +497,24 @@ def create_workbook(data, run_name, run_stats):
                 cell.hyperlink = cell.value
                 cell.font = LINK_FONT
 
-    # ── HOJA 4: AMR por Clase (matriz) ──────────────────────
+    # ── SHEET 4: AMR by Class (matrix) ────────────────────────
     if not integ.empty:
-        ws4 = wb.create_sheet('AMR x Clase')
+        ws4 = wb.create_sheet('AMR x Class')
         ws4.sheet_properties.tabColor = 'E05C2A'
         pivot = integ.groupby(['Organism', 'AMR_class']).size().unstack(fill_value=0)
         pivot = pivot.reset_index()
         write_df_to_sheet(ws4, pivot)
 
-    # ── HOJA 5: KMA Reads (TODOS los campos) ────────────────
+    # ── SHEET 5: KMA Reads (ALL fields) ───────────────────────
     kma = data['kma']
     if not kma.empty:
         ws5 = wb.create_sheet('KMA Reads')
         ws5.sheet_properties.tabColor = 'F39C12'
         write_df_to_sheet(ws5, kma)
 
-    # ── HOJA 6: Concordancia ─────────────────────────────────
+    # ── SHEET 6: Concordance ──────────────────────────────────
     if not integ.empty and not kma.empty:
-        ws6 = wb.create_sheet('Concordancia')
+        ws6 = wb.create_sheet('Concordance')
         ws6.sheet_properties.tabColor = '1ABC9C'
         # Build concordance
         conc_rows = []
@@ -524,42 +524,42 @@ def create_workbook(data, run_name, run_stats):
             for g in sorted(kma_genes | mag_genes):
                 in_kma = g in kma_genes
                 in_mag = g in mag_genes
-                source = 'AMBOS' if in_kma and in_mag else ('SOLO_READS' if in_kma else 'SOLO_CONTIGS')
+                source = 'BOTH' if in_kma and in_mag else ('READS_ONLY' if in_kma else 'CONTIGS_ONLY')
                 kma_row = kma[(kma['Sample'] == sample) & (kma['Gene_root'] == g)]
                 depth = kma_row['Depth'].max() if not kma_row.empty else 0
-                conc_rows.append({'Sample': sample, 'Gene': g, 'Deteccion': source,
+                conc_rows.append({'Sample': sample, 'Gene': g, 'Detection': source,
                                   'KMA_Depth': round(depth, 1),
-                                  'Confianza': 'MAXIMA' if source == 'AMBOS' else 'MODERADA'})
+                                  'Confidence': 'MAXIMUM' if source == 'BOTH' else 'MODERATE'})
         conc_df = pd.DataFrame(conc_rows)
         write_df_to_sheet(ws6, conc_df)
 
-    # ── HOJA 7: Plasmidos ────────────────────────────────────
+    # ── SHEET 7: Plasmids ─────────────────────────────────────
     plasmids = data['plasmids']
     if not plasmids.empty:
-        ws7 = wb.create_sheet('Plasmidos')
+        ws7 = wb.create_sheet('Plasmids')
         ws7.sheet_properties.tabColor = '9B59B6'
         write_df_to_sheet(ws7, plasmids)
 
-    # ── HOJA 8: Riesgo Consolidado ───────────────────────────
+    # ── SHEET 8: Consolidated Risk ────────────────────────────
     if not integ.empty:
-        ws8 = wb.create_sheet('Riesgo')
+        ws8 = wb.create_sheet('Risk')
         ws8.sheet_properties.tabColor = 'E74C3C'
         risk = integ.sort_values('Risk_level', key=lambda x: x.map(
-            {'CRITICO': 0, 'ALTO': 1, 'MEDIO': 2, 'BAJO': 3}))
+            {'CRITICAL': 0, 'HIGH': 1, 'MEDIUM': 2, 'LOW': 3}))
         write_df_to_sheet(ws8, risk)
 
-    # ── HOJA 9: Virulencia y Stress ──────────────────────────
+    # ── SHEET 9: Virulence and Stress ─────────────────────────
     if not amr_full.empty:
         vir_stress = amr_full[amr_full['Type'].isin(['VIRULENCE', 'STRESS'])].copy()
         if not vir_stress.empty:
-            ws9 = wb.create_sheet('Virulencia_Stress')
+            ws9 = wb.create_sheet('Virulence_Stress')
             ws9.sheet_properties.tabColor = 'FF5722'
             write_df_to_sheet(ws9, vir_stress)
 
-    # ── HOJAS FASE A (si existen) ───────────────────────────
+    # ── PHASE A SHEETS (if present) ───────────────────────────
     vfdb = data.get('vfdb', pd.DataFrame())
     if not vfdb.empty:
-        ws_vf = wb.create_sheet('Virulencia_VFDB')
+        ws_vf = wb.create_sheet('Virulence_VFDB')
         ws_vf.sheet_properties.tabColor = 'FF5722'
         write_df_to_sheet(ws_vf, vfdb)
 
@@ -571,55 +571,55 @@ def create_workbook(data, run_name, run_stats):
 
     mob = data.get('mobsuite', pd.DataFrame())
     if not mob.empty:
-        ws_mob = wb.create_sheet('Plasmidos_MOBsuite')
+        ws_mob = wb.create_sheet('Plasmids_MOBsuite')
         ws_mob.sheet_properties.tabColor = '7B1FA2'
         write_df_to_sheet(ws_mob, mob)
 
     integ_finder = data.get('integronfinder', pd.DataFrame())
     if not integ_finder.empty:
-        ws_if = wb.create_sheet('Integrones')
+        ws_if = wb.create_sheet('Integrons')
         ws_if.sheet_properties.tabColor = '00695C'
         write_df_to_sheet(ws_if, integ_finder)
 
     bakta = data.get('bakta', pd.DataFrame())
     if not bakta.empty:
-        ws_bk = wb.create_sheet('Bakta_Anotacion')
+        ws_bk = wb.create_sheet('Bakta_Annotation')
         ws_bk.sheet_properties.tabColor = '0277BD'
         write_df_to_sheet(ws_bk, bakta)
 
-    # ── HOJA FINAL: Software ────────────────────────────────
+    # ── FINAL SHEET: Software ─────────────────────────────────
     ws10 = wb.create_sheet('Software')
     ws10.sheet_properties.tabColor = '607D8B'
     sw = [
-        ('Herramienta', 'Version', 'Fase', 'Funcion'),
+        ('Tool', 'Version', 'Phase', 'Function'),
         ('NanoPlot', '1.46.2', 'TAX', 'QC reads'),
         ('FastQC', '0.12.1', 'TAX', 'QC reads'),
-        ('FastQ Screen', '0.16.0', 'TAX', 'Screening contaminacion'),
-        ('Porechop ABI', '0.5.1', 'TAX', 'Trimming adaptadores'),
-        ('Chopper', '0.12.0', 'TAX', 'Filtrado Q + longitud'),
-        ('minimap2', '2.30', 'TAX/MAG', 'Mapeo'),
+        ('FastQ Screen', '0.16.0', 'TAX', 'Contamination screening'),
+        ('Porechop ABI', '0.5.1', 'TAX', 'Adapter trimming'),
+        ('Chopper', '0.12.0', 'TAX', 'Q + length filtering'),
+        ('minimap2', '2.30', 'TAX/MAG', 'Mapping'),
         ('samtools', '1.21', 'TAX/MAG', 'BAM processing'),
-        ('Kraken2', '2.17.1', 'TAX', 'Taxonomia k-mers'),
-        ('Bracken', '3.1', 'TAX', 'Abundancias'),
-        ('Kaiju', '1.10.1', 'TAX', 'Taxonomia proteica'),
-        ('Sylph', '0.9.0', 'TAX', 'Perfilado ANI'),
-        ('KMA', '1.6.8', 'TAX', 'AMR desde reads (ResFinder)'),
-        ('MultiQC', '1.33', 'TAX', 'Reporte integrado'),
-        ('MetaFlye', '2.9.6', 'MAG', 'Ensamblaje metagenomico'),
+        ('Kraken2', '2.17.1', 'TAX', 'k-mer taxonomy'),
+        ('Bracken', '3.1', 'TAX', 'Abundances'),
+        ('Kaiju', '1.10.1', 'TAX', 'Protein taxonomy'),
+        ('Sylph', '0.9.0', 'TAX', 'ANI profiling'),
+        ('KMA', '1.6.8', 'TAX', 'AMR from reads (ResFinder)'),
+        ('MultiQC', '1.33', 'TAX', 'Integrated report'),
+        ('MetaFlye', '2.9.6', 'MAG', 'Metagenomic assembly'),
         ('Medaka', '2.2.1', 'MAG', 'Polishing'),
-        ('QUAST', '5.3.0', 'MAG', 'QC ensamblaje'),
+        ('QUAST', '5.3.0', 'MAG', 'Assembly QC'),
         ('MetaBAT2', '2.18', 'MAG', 'Binning'),
         ('MaxBin2', '2.2.7', 'MAG', 'Binning'),
-        ('SemiBin2', '2.2.1', 'MAG', 'Binning deep learning'),
-        ('DAS Tool', '1.1.7', 'MAG', 'Refinamiento bins'),
-        ('CheckM2', '1.1.0', 'MAG', 'QC MAGs'),
-        ('GTDB-Tk', '2.7.0', 'MAG', 'Taxonomia MAGs (r232)'),
-        ('AMRFinderPlus', '4.2.7', 'MAG', 'AMR + virulencia + stress'),
-        ('geNomad', '1.12.0', 'MAG', 'Plasmidos y virus'),
-        ('ABRicate', '1.4.0', 'Fase A', 'Virulencia (VFDB) + CARD + PlasmidFinder'),
-        ('MOB-suite', '3.1.9', 'Fase A', 'Tipificacion plasmidos (replicones, movilidad)'),
-        ('IntegronFinder', '2.0.6', 'Fase A', 'Deteccion de integrones'),
-        ('Bakta', '1.12.0', 'Fase A', 'Anotacion funcional MAGs'),
+        ('SemiBin2', '2.2.1', 'MAG', 'Deep-learning binning'),
+        ('DAS Tool', '1.1.7', 'MAG', 'Bin refinement'),
+        ('CheckM2', '1.1.0', 'MAG', 'MAG QC'),
+        ('GTDB-Tk', '2.7.0', 'MAG', 'MAG taxonomy (r232)'),
+        ('AMRFinderPlus', '4.2.7', 'MAG', 'AMR + virulence + stress'),
+        ('geNomad', '1.12.0', 'MAG', 'Plasmids and viruses'),
+        ('ABRicate', '1.4.0', 'Phase A', 'Virulence (VFDB) + CARD + PlasmidFinder'),
+        ('MOB-suite', '3.1.9', 'Phase A', 'Plasmid typing (replicons, mobility)'),
+        ('IntegronFinder', '2.0.6', 'Phase A', 'Integron detection'),
+        ('Bakta', '1.12.0', 'Phase A', 'MAG functional annotation'),
     ]
     for row_idx, row_data in enumerate(sw, 1):
         for col_idx, val in enumerate(row_data, 1):
@@ -632,7 +632,7 @@ def create_workbook(data, run_name, run_stats):
 
 
 def main():
-    parser = argparse.ArgumentParser(description='Genera Excel exhaustivo EpiTaxMAG')
+    parser = argparse.ArgumentParser(description='Generate comprehensive EpiTaxMAG Excel')
     parser.add_argument('--results-dir', required=True)
     parser.add_argument('--run-name', required=True)
     parser.add_argument('--input-dir', default=None)
@@ -640,7 +640,7 @@ def main():
     args = parser.parse_args()
 
     rd = args.results_dir
-    print(f'[INFO] Generando Excel para {args.run_name}')
+    print(f'[INFO] Generating Excel for {args.run_name}')
 
     run_stats = load_run_stats(args.input_dir) if args.input_dir else {
         'total_reads': 0, 'classified_reads': 0, 'unclassified_reads': 0, 'pct_unclassified': 0}
@@ -674,7 +674,7 @@ def main():
         'kma': load_kma(rd),
         'plasmids': load_plasmids(rd),
         'integration': load_integration(rd),
-        # Fase A
+        # Phase A
         'vfdb': load_abricate_vfdb(rd),
         'card': load_abricate_card(rd),
         'mobsuite': load_mobsuite(rd),
@@ -684,17 +684,17 @@ def main():
 
     n_vfdb = len(data['vfdb'])
     n_mob = len(data['mobsuite'])
-    print(f'[INFO] Datos: {len(survival)} muestras, {len(data["checkm2"])} MAGs, '
-          f'{len(data["amr_full"])} AMR, {len(data["kma"])} KMA, {len(data["plasmids"])} plasmidos')
-    print(f'[INFO] Fase A: {n_vfdb} virulencia VFDB, {n_mob} plasmidos MOB-suite, '
-          f'{len(data["integronfinder"])} integrones, {len(data["bakta"])} MAGs anotados')
+    print(f'[INFO] Data: {len(survival)} samples, {len(data["checkm2"])} MAGs, '
+          f'{len(data["amr_full"])} AMR, {len(data["kma"])} KMA, {len(data["plasmids"])} plasmids')
+    print(f'[INFO] Phase A: {n_vfdb} VFDB virulence, {n_mob} MOB-suite plasmids, '
+          f'{len(data["integronfinder"])} integrons, {len(data["bakta"])} annotated MAGs')
 
     wb = create_workbook(data, args.run_name, run_stats)
 
     os.makedirs(os.path.dirname(args.output) or '.', exist_ok=True)
     wb.save(args.output)
     print(f'[OK] Excel: {args.output}')
-    print(f'[OK] Hojas: {", ".join(wb.sheetnames)}')
+    print(f'[OK] Sheets: {", ".join(wb.sheetnames)}')
 
 
 if __name__ == '__main__':
