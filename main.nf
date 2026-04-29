@@ -204,13 +204,24 @@ Channel
 workflow {
 
     // ── Setup: automatic database download ──────────────────────
+    // Emits a `ready` channel once every required database is in place.
+    // TAX and MAG gate on this channel so no taxonomy/AMR process starts
+    // before its database has finished downloading.
     if (!params.skip_db_setup) {
         EPITAXMAG_SETUP()
+        ch_setup_ready = EPITAXMAG_SETUP.out.ready
+    } else {
+        ch_setup_ready = Channel.value('skip')
     }
 
     // ── TAX phase: taxonomic profiling (EpiTax) ─────────────────
     if (params.run_tax) {
-        EPITAXMAG_TAX(ch_raw_fastq)
+        // Combine raw FASTQs with the setup ready signal so TAX waits for it
+        ch_tax_input = ch_raw_fastq
+            .combine(ch_setup_ready)
+            .map { sample, fastq, _ready -> tuple(sample, fastq) }
+
+        EPITAXMAG_TAX(ch_tax_input)
     }
 
     // ── MAG phase: assembly + MAG recovery (EpiTaxMAG) ──────────
@@ -218,7 +229,7 @@ workflow {
         if (params.run_tax) {
             ch_mag_input = EPITAXMAG_TAX.out.filtered
         } else {
-            // Reuse filtered reads from a previous run
+            // Reuse filtered reads from a previous run; gate on setup ready
             def rn = params.run_name ?: file(params.input).name
             def od = params.outdir ?: "${projectDir}/results/${rn}"
             def filt_dir = params.filtered_dir ?: "${od}/04_filter_chopper"
@@ -228,6 +239,8 @@ workflow {
             ch_mag_input = Channel
                 .fromPath("${filt_dir}/*.filtered.fastq.gz", checkIfExists: true)
                 .map { f -> tuple(f.baseName.replaceAll(/\.filtered\.fastq$/, ''), f) }
+                .combine(ch_setup_ready)
+                .map { sample, fastq, _ready -> tuple(sample, fastq) }
         }
 
         EPITAXMAG_MAG(ch_mag_input)

@@ -4,8 +4,13 @@
  * SETUP_DB — Automatic download of pipeline databases.
  *
  * Each process uses `storeDir` so files persist across runs and across
- * pipeline restarts. Skipped automatically if the marker file already
- * exists. Use `--skip_db_setup` to bypass entirely.
+ * pipeline restarts. Nextflow skips a process when all its outputs are
+ * already in the storeDir, so the workflow is idempotent without an
+ * explicit `when:` guard. Use `--skip_db_setup` to bypass entirely.
+ *
+ * The workflow emits a single `ready` channel that downstream subworkflows
+ * (TAX, MAG) gate on, so no taxonomy/AMR process starts before its
+ * databases finish downloading.
  *
  * Layout under params.db_root:
  *   k2_pluspf_20251015/        — Kraken2 PlusPF
@@ -32,9 +37,6 @@ process DOWNLOAD_KRAKEN2 {
     output:
     path("hash.k2d"), emit: done
 
-    when:
-    !file("${params.db_root}/k2_pluspf_20251015/hash.k2d").exists()
-
     script:
     """
     set -euo pipefail
@@ -52,9 +54,6 @@ process DOWNLOAD_KAIJU {
     output:
     path("kaiju_db_refseq_ref.fmi"), emit: done
 
-    when:
-    !file("${params.db_root}/kaiju/kaiju_db_refseq_ref.fmi").exists()
-
     script:
     """
     set -euo pipefail
@@ -63,7 +62,6 @@ process DOWNLOAD_KAIJU {
         https://kaiju-idx.s3.eu-central-1.amazonaws.com/2024/kaiju_db_refseq_ref_2024-08-14.tgz
     tar xzf kaiju_db_refseq_ref_2024-08-14.tgz
     rm -f kaiju_db_refseq_ref_2024-08-14.tgz
-    # Sanity check: the expected files must exist
     test -f kaiju_db_refseq_ref.fmi
     test -f nodes.dmp
     test -f names.dmp
@@ -77,11 +75,6 @@ process DOWNLOAD_SYLPH {
     path("gtdb-r226-c200-dbv1.syldb"),                    emit: gtdb
     path("fungi-refseq-2025-10-11-c200-dbv1.syldb"),      emit: fungi
     path("imgvr_c200_v0.3.0.syldb"),                      emit: viral
-
-    when:
-    !file("${params.db_root}/sylph/gtdb-r226-c200-dbv1.syldb").exists() ||
-    !file("${params.db_root}/sylph/fungi-refseq-2025-10-11-c200-dbv1.syldb").exists() ||
-    !file("${params.db_root}/sylph/imgvr_c200_v0.3.0.syldb").exists()
 
     script:
     // Sylph databases are hosted at CMU (faust.compbio.cs.cmu.edu) with a
@@ -114,9 +107,6 @@ process DOWNLOAD_RESFINDER {
     output:
     path("all.fsa"), emit: done
 
-    when:
-    !file("${params.db_root}/kma_resfinder/resfinder_db/all.fsa").exists()
-
     script:
     """
     set -euo pipefail
@@ -136,51 +126,55 @@ process SETUP_FASTQSCREEN {
     path("fastq_screen.conf"), emit: conf
     path("genomes/"),          emit: genomes
 
-    when:
-    !file("${params.db_root}/fastqscreen/fastq_screen.conf").exists()
-
     script:
-    def fqs_url = params.fastqscreen_genomes_url ?: ''
+    def fqs_url   = params.fastqscreen_genomes_url ?: ''
+    def final_dir = "${params.db_root}/fastqscreen/genomes"
     """
-    set -euo pipefail
+    set -e
+    shopt -s nullglob
     mkdir -p genomes
 
     if [ -n "${fqs_url}" ]; then
         echo "[setup_db] Downloading FastQ Screen genome panel..."
         wget -c --tries=5 --timeout=120 "${fqs_url}" -O fastqscreen_genomes.tar.gz
-        tar xzf fastqscreen_genomes.tar.gz -C genomes/ --strip-components=0
-        rm -f fastqscreen_genomes.tar.gz
+        # The Zenodo tarball nests fastas under a top-level `genomes/` directory.
+        # Extract into a temp dir, then flatten everything into our genomes/.
+        mkdir -p _extract
+        tar xzf fastqscreen_genomes.tar.gz -C _extract/
+        find _extract -name '*.fasta' -exec mv {} genomes/ \\;
+        rm -rf _extract fastqscreen_genomes.tar.gz
     else
         echo "[setup_db] WARNING: params.fastqscreen_genomes_url is not set."
         echo "[setup_db] FastQ Screen panel must be configured manually."
-        echo "[setup_db] Place reference .fasta files under: ${params.db_root}/fastqscreen/genomes/"
+        echo "[setup_db] Place reference .fasta files under: ${final_dir}/"
     fi
 
     # Generate .fa symlinks and gzipped variants required by minimap2
-    cd genomes
+    pushd genomes >/dev/null
     for f in *.fasta; do
-        [ ! -f "\$f" ] && continue
         base="\${f%.fasta}"
         ln -sf "\$f" "\${base}.fa" 2>/dev/null || true
         if [ ! -f "\${base}.fa.gz" ]; then
             gzip -c "\$f" > "\${base}.fa.gz"
         fi
     done
-    cd ..
+    popd >/dev/null
 
-    # Auto-generate fastq_screen.conf from the available genomes
+    # Auto-generate fastq_screen.conf with absolute paths to the FINAL storeDir
+    # location, so it works once Nextflow moves the outputs.
     {
         echo "# FastQ Screen config — generated automatically by EpiTaxMAG"
         echo "# Metagenomic surveillance panel"
         echo "ALIGNER   minimap2"
         echo "THREADS   8"
         echo ""
-        for f in genomes/*.fasta; do
-            [ ! -f "\$f" ] && continue
-            name=\$(basename "\$f" .fasta)
-            # Absolute prefix path; FastQ Screen appends .fa/.fa.gz automatically
-            printf "DATABASE\\t%s\\t%s/genomes/%s\\n" "\$name" "\$(pwd)" "\$name"
+        pushd genomes >/dev/null
+        for f in *.fasta; do
+            name="\${f%.fasta}"
+            # FastQ Screen appends .fa/.fa.gz automatically
+            printf "DATABASE\\t%s\\t%s/%s\\n" "\$name" "${final_dir}" "\$name"
         done
+        popd >/dev/null
     } > fastq_screen.conf
 
     n=\$(ls genomes/*.fasta 2>/dev/null | wc -l)
@@ -199,10 +193,6 @@ process DOWNLOAD_CHECKM2 {
     output:
     path("CheckM2_database/uniref100.KO.1.dmnd"), emit: done
 
-    when:
-    params.run_assembly &&
-    !file("${params.db_root}/checkm2/CheckM2_database/uniref100.KO.1.dmnd").exists()
-
     script:
     """
     set -euo pipefail
@@ -219,10 +209,6 @@ process DOWNLOAD_GTDBTK {
 
     output:
     path("release232"), emit: done
-
-    when:
-    params.run_assembly && !params.skip_gtdbtk &&
-    !file("${params.db_root}/gtdbtk_r232/release232").exists()
 
     script:
     // Pinned r232 download for reproducibility. The Australian mirror only
@@ -244,9 +230,6 @@ process DOWNLOAD_GENOMAD {
     output:
     path("genomad_db"), emit: done
 
-    when:
-    params.run_assembly && !file("${params.db_root}/genomad/genomad_db").exists()
-
     script:
     """
     set -euo pipefail
@@ -267,9 +250,6 @@ process SETUP_AMRFINDERPLUS {
     output:
     path("latest/"), emit: db
 
-    when:
-    params.run_assembly && !file("${params.db_root}/amrfinderplus/latest").exists()
-
     script:
     """
     set -euo pipefail
@@ -287,9 +267,6 @@ process SETUP_BAKTA {
     output:
     path("db/"), emit: db
 
-    when:
-    params.run_assembly && !file("${params.db_root}/bakta/db").exists()
-
     script:
     def db_type = params.bakta_db_type ?: 'full'
     """
@@ -306,10 +283,6 @@ process DOWNLOAD_SOURMASH_GTDB {
     path("gtdb-rs226-reps-k31.zip"),  emit: db
     path("gtdb-rs226.lineages.csv"),  emit: lineages
 
-    when:
-    params.run_assembly && params.skip_gtdbtk &&
-    !file("${params.db_root}/sourmash/gtdb-rs226-reps-k31.zip").exists()
-
     script:
     """
     set -euo pipefail
@@ -325,7 +298,8 @@ process DOWNLOAD_SOURMASH_GTDB {
 
 
 // ──────────────────────────────────────────────────────────────────────
-// Setup workflow — invoked from main.nf unless --skip_db_setup
+// Setup workflow — invoked from main.nf unless --skip_db_setup.
+// Emits a single `ready` channel that downstream subworkflows gate on.
 // ──────────────────────────────────────────────────────────────────────
 
 workflow SETUP_DB {
@@ -339,7 +313,16 @@ workflow SETUP_DB {
     DOWNLOAD_RESFINDER()
     SETUP_FASTQSCREEN()
 
-    // MAG databases (only when --run_assembly)
+    // Collect TAX-phase done signals
+    ch_tax_done = DOWNLOAD_KRAKEN2.out.done
+        .mix(
+            DOWNLOAD_KAIJU.out.done,
+            DOWNLOAD_SYLPH.out.gtdb,
+            DOWNLOAD_RESFINDER.out.done,
+            SETUP_FASTQSCREEN.out.conf
+        )
+        .collect()
+
     if (params.run_assembly) {
         DOWNLOAD_CHECKM2()
         DOWNLOAD_GENOMAD()
@@ -348,8 +331,26 @@ workflow SETUP_DB {
 
         if (!params.skip_gtdbtk) {
             DOWNLOAD_GTDBTK()
+            ch_mag_tax = DOWNLOAD_GTDBTK.out.done
         } else {
             DOWNLOAD_SOURMASH_GTDB()
+            ch_mag_tax = DOWNLOAD_SOURMASH_GTDB.out.db
         }
+
+        ch_mag_done = DOWNLOAD_CHECKM2.out.done
+            .mix(
+                DOWNLOAD_GENOMAD.out.done,
+                SETUP_AMRFINDERPLUS.out.db,
+                SETUP_BAKTA.out.db,
+                ch_mag_tax
+            )
+            .collect()
+
+        ch_ready = ch_tax_done.mix(ch_mag_done).collect().map { 'ready' }
+    } else {
+        ch_ready = ch_tax_done.map { 'ready' }
     }
+
+    emit:
+    ready = ch_ready
 }
