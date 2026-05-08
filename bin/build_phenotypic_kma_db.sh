@@ -7,8 +7,9 @@ set -euo pipefail
 OUTDIR="assets/phenotypic_targets"
 mkdir -p "$OUTDIR"
 
-export http_proxy="${http_proxy:-http://proxy.san.gva.es:8080}"
-export https_proxy="${https_proxy:-http://proxy.san.gva.es:8080}"
+# Proxy honoured from the environment if set; this script does not
+# hard-code institutional proxies. Configure http_proxy/https_proxy in
+# your shell or in conf/local.config (env.http_proxy, env.https_proxy).
 
 echo "  Building phenotypic type-strain KMA database"
 echo ""

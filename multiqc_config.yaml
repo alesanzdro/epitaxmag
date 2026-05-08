@@ -1,13 +1,13 @@
 # ============================================================
 # MultiQC Configuration — EpiTax / EpiTaxMAG Pipeline
 # ============================================================
-# Este fichero se pasa automáticamente a MultiQC desde el proceso
-# MULTIQC en workflow/tax/main.nf
+# This file is passed automatically to MultiQC by the MULTIQC
+# process in workflow/tax/main.nf
 # ============================================================
 
-# ── Limpieza de nombres de muestra ───────────────────────────
-# Elimina sufijos que las herramientas añaden, para que
-# todas las métricas se consoliden en la misma fila por muestra
+# ── Sample-name cleanup ───────────────────────────────────────
+# Strip suffixes that individual tools append, so that all the
+# metrics for one sample collapse into a single row.
 
 extra_fn_clean_exts:
   - ".filtered"
@@ -30,8 +30,8 @@ extra_fn_clean_exts:
 
 fn_clean_sample_names: true
 
-# ── Separar FastQC Raw y Filtered en secciones distintas ──────
-# Usa los directorios de origen para distinguir raw vs filtered
+# ── Separate FastQC raw and filtered into distinct sections ───
+# Use the source directories to distinguish raw vs filtered.
 
 module_order:
   - fastqc:
@@ -48,7 +48,7 @@ module_order:
   - kaiju
   - busco
 
-# ── Orden de las secciones ────────────────────────────────────
+# ── Section order ─────────────────────────────────────────────
 report_section_order:
   fastqc-raw-reads:
     order: 100
@@ -63,10 +63,10 @@ report_section_order:
   kaiju:
     order: 600
 
-# ── Título y branding ─────────────────────────────────────────
+# ── Title and branding ────────────────────────────────────────
 title: "EpiTax — QC Report"
-subtitle: "Pipeline Metagenómica Nanopore | FISABIO — EPIMOL"
-intro_text: "Reporte integrado de control de calidad para el pipeline EpiTax."
+subtitle: "Nanopore Metagenomics Pipeline | FISABIO — EPIMOL"
+intro_text: "Integrated QC report for the EpiTax pipeline."
 
 custom_logo: null
 custom_logo_url: null
@@ -75,8 +75,8 @@ custom_logo_title: null
 show_analysis_paths: false
 show_analysis_time: true
 
-# ── Tabla General Statistics ──────────────────────────────────
-# Columnas a mostrar por defecto
+# ── General Statistics table ──────────────────────────────────
+# Columns shown by default
 table_columns_visible:
   FastQC (Raw Reads):
     percent_duplicates: false

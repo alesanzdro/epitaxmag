@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
 generate_mag_report.py
-Genera reportes HTML para EpiTaxMAG:
-  - Reporte general del run (todas las muestras)
-  - Reportes individuales por muestra (con branding)
+Generate HTML reports for EpiTaxMAG:
+  - General run report (all samples)
+  - Individual per-sample reports (with branding)
 
-Uso:
+Usage:
   python3 scripts/generate_mag_report.py \
       --results-dir results/260226_EPIM232 \
       --run-name 260226_EPIM232 \
@@ -25,7 +25,7 @@ import plotly
 warnings.filterwarnings('ignore')
 
 # ═══════════════════════════════════════════════════════════════
-# PALETA Y CONSTANTES
+# PALETTE AND CONSTANTS
 # ═══════════════════════════════════════════════════════════════
 
 BLUE = '#2C5F8A'; LBLUE = '#5B9ABF'; ORANGE = '#E05C2A'
@@ -33,12 +33,12 @@ GREEN = '#28A745'; RED = '#E74C3C'; GREY = '#6C757D'
 PALETTE = [BLUE, ORANGE, GREEN, '#9B59B6', '#F39C12',
            '#1ABC9C', RED, '#3498DB', '#95A5A6', '#D35400']
 
-RISK_COLORS = {'CRITICO': RED, 'ALTO': ORANGE, 'MEDIO': '#F39C12', 'BAJO': GREEN}
+RISK_COLORS = {'CRITICAL': RED, 'HIGH': ORANGE, 'MEDIUM': '#F39C12', 'LOW': GREEN}
 RISK_BADGE = {
-    'CRITICO': f'<span class="badge" style="background:{RED}">CRITICO</span>',
-    'ALTO':    f'<span class="badge" style="background:{ORANGE}">ALTO</span>',
-    'MEDIO':   f'<span class="badge" style="background:#F39C12">MEDIO</span>',
-    'BAJO':    f'<span class="badge" style="background:{GREEN}">BAJO</span>',
+    'CRITICAL': f'<span class="badge" style="background:{RED}">CRITICAL</span>',
+    'HIGH':     f'<span class="badge" style="background:{ORANGE}">HIGH</span>',
+    'MEDIUM':   f'<span class="badge" style="background:#F39C12">MEDIUM</span>',
+    'LOW':      f'<span class="badge" style="background:{GREEN}">LOW</span>',
 }
 QC_BADGE = {
     'HQ': f'<span class="badge" style="background:{GREEN}">HQ</span>',
@@ -47,8 +47,8 @@ QC_BADGE = {
 }
 CONCORDANCE_BADGE = {
     'BOTH':      f'<span class="badge" style="background:{GREEN}">Reads+Contigs</span>',
-    'READS':     f'<span class="badge" style="background:#F39C12">Solo Reads</span>',
-    'CONTIGS':   f'<span class="badge" style="background:{LBLUE}">Solo Contigs</span>',
+    'READS':     f'<span class="badge" style="background:#F39C12">Reads only</span>',
+    'CONTIGS':   f'<span class="badge" style="background:{LBLUE}">Contigs only</span>',
 }
 
 # ═══════════════════════════════════════════════════════════════
@@ -99,7 +99,7 @@ def load_qc_csv(path):
     return df
 
 def load_run_stats(input_dir):
-    """Calcula estadisticas de la carrera incluyendo unclassified."""
+    """Compute run statistics including unclassified."""
     import gzip
     stats = {'samples': [], 'total_reads': 0, 'classified_reads': 0,
              'unclassified_reads': 0, 'pct_unclassified': 0}
@@ -251,7 +251,7 @@ def compute_survival(qc_raw, qc_filt):
     return df.sort_values('Sample').reset_index(drop=True)
 
 def compute_concordance(kma_df, amr_df):
-    """Cruzar KMA reads vs AMRFinderPlus contigs por gene root."""
+    """Cross KMA reads vs AMRFinderPlus contigs by gene root."""
     if kma_df.empty and amr_df.empty: return pd.DataFrame()
     rows = []
     samples = set()
@@ -297,7 +297,7 @@ def compute_concordance(kma_df, amr_df):
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
 def confidence_score(identity, coverage, method, kma_concordance, mag_quality, plasmid_score):
-    """Score de confianza compuesto (0-100)."""
+    """Composite confidence score (0-100)."""
     score = 0
     score += min(identity, 100) * 0.3
     score += min(coverage, 100) * 0.2
@@ -315,7 +315,7 @@ def confidence_score(identity, coverage, method, kma_concordance, mag_quality, p
 # ═══════════════════════════════════════════════════════════════
 
 def html_pipeline_dag():
-    """Genera diagrama del pipeline estilo nf-core con versiones."""
+    """Generate an nf-core-style pipeline diagram with versions."""
     return """<div class="dag-container"><div class="dag-flow">
     <div class="dag-row">
         <div class="dag-box qc">NanoPlot 1.46.2</div>
@@ -323,7 +323,7 @@ def html_pipeline_dag():
         <div class="dag-box qc">CHECK_SQCORE</div>
         <div class="dag-box qc">FastQ Screen 0.16.0</div>
     </div>
-    <div class="dag-label">QC + Screening (reads crudos)</div>
+    <div class="dag-label">QC + Screening (raw reads)</div>
     <div class="dag-arrow">&#x25BC;</div>
 
     <div class="dag-row">
@@ -333,7 +333,7 @@ def html_pipeline_dag():
         <div class="dag-arrow">&#x25B6;</div>
         <div class="dag-box trim">Host Removal (minimap2 2.30)</div>
     </div>
-    <div class="dag-label">Trimming + Filtrado + Decontaminacion</div>
+    <div class="dag-label">Trimming + Filtering + Decontamination</div>
     <div class="dag-arrow">&#x25BC;</div>
 
     <div class="dag-row">
@@ -341,7 +341,7 @@ def html_pipeline_dag():
         <div class="dag-box qc">FastQC 0.12.1</div>
         <div class="dag-box qc">CHECK_SQCORE</div>
     </div>
-    <div class="dag-label">QC reads filtrados</div>
+    <div class="dag-label">Filtered reads QC</div>
     <div class="dag-arrow">&#x25BC;</div>
 
     <div class="dag-row">
@@ -351,15 +351,15 @@ def html_pipeline_dag():
         <div class="dag-box tax">Sylph 0.9.0</div>
         <div class="dag-box ann">KMA 1.6.8</div>
     </div>
-    <div class="dag-label">EpiTax: Taxonomia + AMR reads (ResFinder)</div>
+    <div class="dag-label">EpiTax: Taxonomy + AMR reads (ResFinder)</div>
     <div class="dag-arrow">&#x25BC;</div>
 
     <div class="dag-row">
         <div class="dag-box rep">MultiQC 1.33</div>
         <div class="dag-box rep">EpiTax HTML Report</div>
     </div>
-    <div class="dag-label">Reportes fase TAX</div>
-    <div class="dag-arrow">&#x25BC; reads filtrados</div>
+    <div class="dag-label">TAX phase reports</div>
+    <div class="dag-arrow">&#x25BC; filtered reads</div>
 
     <div class="dag-row">
         <div class="dag-box asm">MetaFlye 2.9.6</div>
@@ -368,13 +368,13 @@ def html_pipeline_dag():
         <div class="dag-arrow">&#x25B6;</div>
         <div class="dag-box qc">QUAST 5.3.0</div>
     </div>
-    <div class="dag-label">Ensamblaje + Polishing</div>
+    <div class="dag-label">Assembly + Polishing</div>
     <div class="dag-arrow">&#x25BC;</div>
 
     <div class="dag-row">
         <div class="dag-box asm">minimap2 2.30 + samtools 1.21</div>
     </div>
-    <div class="dag-label">Mapeo cobertura</div>
+    <div class="dag-label">Coverage mapping</div>
     <div class="dag-arrow">&#x25BC;</div>
 
     <div class="dag-row">
@@ -382,13 +382,13 @@ def html_pipeline_dag():
         <div class="dag-box bin">MaxBin2 2.2.7</div>
         <div class="dag-box bin">SemiBin2 2.2.1</div>
     </div>
-    <div class="dag-label">Binning (3 algoritmos)</div>
+    <div class="dag-label">Binning (3 algorithms)</div>
     <div class="dag-arrow">&#x25BC;</div>
 
     <div class="dag-row">
         <div class="dag-box bin">DAS Tool 1.1.7</div>
     </div>
-    <div class="dag-label">Refinamiento de bins</div>
+    <div class="dag-label">Bin refinement</div>
     <div class="dag-arrow">&#x25BC;</div>
 
     <div class="dag-row">
@@ -397,19 +397,19 @@ def html_pipeline_dag():
         <div class="dag-box ann">AMRFinderPlus 4.2.7</div>
         <div class="dag-box ann">geNomad 1.12.0</div>
     </div>
-    <div class="dag-label">QC + Taxonomia + AMR contigs + Plasmidos</div>
+    <div class="dag-label">QC + Taxonomy + AMR contigs + Plasmids</div>
     <div class="dag-arrow">&#x25BC;</div>
 
     <div class="dag-row">
-        <div class="dag-box rep">Integracion AMR-Patogeno-Plasmido</div>
+        <div class="dag-box rep">AMR-Pathogen-Plasmid integration</div>
         <div class="dag-arrow">&#x25B6;</div>
         <div class="dag-box rep">EpiTaxMAG Report</div>
     </div>
-    <div class="dag-label">Reporte final con evaluacion de riesgo</div>
+    <div class="dag-label">Final report with risk assessment</div>
     </div></div>"""
 
 def fig_to_html(fig):
-    if fig is None: return '<p class="no-data">Sin datos disponibles.</p>'
+    if fig is None: return '<p class="no-data">No data available.</p>'
     return fig.to_html(full_html=False, include_plotlyjs=False)
 
 def chart_retention(surv):
@@ -440,7 +440,7 @@ def chart_mag_quality(checkm2_df):
     for q in ['HQ','MQ','LQ']:
         fig.add_trace(go.Bar(name=q, x=counts.index, y=counts[q], marker_color=colors[q],
                              text=counts[q], textposition='inside'))
-    fig.update_layout(barmode='stack', height=350, title=dict(text='Calidad de MAGs por muestra', font_color=BLUE),
+    fig.update_layout(barmode='stack', height=350, title=dict(text='MAG Quality by Sample', font_color=BLUE),
                       xaxis_tickangle=-40, margin=dict(l=60,r=30,t=60,b=100),
                       legend=dict(orientation='h', yanchor='bottom', y=1.04, xanchor='center', x=0.5),
                       font=dict(family='Arial, sans-serif', size=10))
@@ -460,7 +460,7 @@ def chart_amr_heatmap(integ_df):
         text=[[str(v) if v > 0 else '' for v in row] for row in pivot.values],
         texttemplate='%{text}', textfont_size=9,
         colorbar=dict(title=dict(text='N genes', side='right'))))
-    fig.update_layout(title=dict(text='AMR: Organismos vs Clases de Resistencia', font_color=BLUE, font_size=14),
+    fig.update_layout(title=dict(text='AMR: Organisms vs Resistance Classes', font_color=BLUE, font_size=14),
                       height=max(350, len(pivot)*28+150), margin=dict(l=250,r=80,t=60,b=150),
                       xaxis=dict(tickangle=-45, tickfont_size=8), yaxis=dict(tickfont_size=9),
                       font=dict(family='Arial, sans-serif'))
@@ -472,7 +472,7 @@ def chart_risk_summary(integ_df):
     colors_map = [RISK_COLORS.get(r, GREY) for r in risk_counts.index]
     fig = go.Figure(go.Bar(x=risk_counts.index, y=risk_counts.values, marker_color=colors_map,
                            text=risk_counts.values, textposition='outside'))
-    fig.update_layout(title=dict(text='Distribucion de Riesgo AMR', font_color=BLUE, font_size=14),
+    fig.update_layout(title=dict(text='AMR Risk Distribution', font_color=BLUE, font_size=14),
                       height=300, margin=dict(l=60,r=30,t=60,b=60),
                       yaxis_title='N genes', font=dict(family='Arial, sans-serif'))
     return fig
@@ -483,7 +483,7 @@ def chart_risk_summary(integ_df):
 # ═══════════════════════════════════════════════════════════════
 
 def html_survival_table(surv):
-    if surv.empty: return '<p class="no-data">Sin datos de QC.</p>'
+    if surv.empty: return '<p class="no-data">No QC data.</p>'
     rows = ''
     for _, r in surv.iterrows():
         pct_cls = 'good' if r['pct_reads'] >= 70 else ('warn' if r['pct_reads'] >= 50 else 'bad')
@@ -498,11 +498,11 @@ def html_survival_table(surv):
              f'<td><strong>{tot["raw_reads"]:,.0f}</strong></td><td><strong>{tot["raw_gb"]:.2f}</strong></td>'
              f'<td><strong>{tot["clean_reads"]:,.0f}</strong></td><td><strong>{tot["clean_gb"]:.2f}</strong></td>'
              f'<td><strong>{pct:.1f}%</strong></td></tr>')
-    return (f'<table class="data-table sortable filterable"><thead><tr><th>Muestra</th><th>Raw Reads</th><th>Raw Gb</th>'
-            f'<th>Clean Reads</th><th>Clean Gb</th><th>% Retencion</th></tr></thead><tbody>{rows}</tbody></table>')
+    return (f'<table class="data-table sortable filterable"><thead><tr><th>Sample</th><th>Raw Reads</th><th>Raw Gb</th>'
+            f'<th>Clean Reads</th><th>Clean Gb</th><th>% Retention</th></tr></thead><tbody>{rows}</tbody></table>')
 
 def html_mag_catalog(checkm2_df, tax_df, sample=None):
-    if checkm2_df.empty: return '<p class="no-data">Sin MAGs recuperados.</p>'
+    if checkm2_df.empty: return '<p class="no-data">No MAGs recovered.</p>'
     df = checkm2_df.copy()
     if sample: df = df[df['Sample']==sample]
     if not tax_df.empty:
@@ -517,10 +517,10 @@ def html_mag_catalog(checkm2_df, tax_df, sample=None):
                  f'<td><em>{r.get("Organism","")}</em></td>'
                  f'<td>{r["Completeness"]:.1f}%</td><td>{r["Contamination"]:.1f}%</td>'
                  f'<td>{QC_BADGE.get(r["Quality"],"")}</td></tr>\n')
-    sample_th = '<th>Muestra</th>' if not sample else ''
+    sample_th = '<th>Sample</th>' if not sample else ''
     return (f'<table class="data-table sortable filterable"><thead><tr>{sample_th}'
-            f'<th>Bin</th><th>Organismo</th>'
-            f'<th>Completeness</th><th>Contamination</th><th>Calidad</th></tr></thead>'
+            f'<th>Bin</th><th>Organism</th>'
+            f'<th>Completeness</th><th>Contamination</th><th>Quality</th></tr></thead>'
             f'<tbody>{rows}</tbody></table>')
 
 def _safe_str(val):
@@ -532,10 +532,10 @@ def _safe_str(val):
 
 def html_amr_detail(integ_df, amr_mags_df, sample=None):
     """Enhanced AMR detail table with descriptions, accession links, and closest reference."""
-    if integ_df.empty: return '<p class="no-data">Sin genes AMR detectados en MAGs.</p>'
+    if integ_df.empty: return '<p class="no-data">No AMR genes detected in MAGs.</p>'
     df = integ_df.copy()
     if sample: df = df[df['Sample']==sample]
-    if df.empty: return '<p class="no-data">Sin genes AMR en esta muestra.</p>'
+    if df.empty: return '<p class="no-data">No AMR genes in this sample.</p>'
 
     # Build lookup from amr_mags for extra columns (Accession, Closest_ref, HMM_desc)
     amr_lookup = {}
@@ -557,9 +557,9 @@ def html_amr_detail(integ_df, amr_mags_df, sample=None):
         conf_cls = 'good' if conf >= 70 else ('warn' if conf >= 40 else 'bad')
         loc = r.get('Location','')
         if loc == 'PLASMID':
-            loc_badge = f'<span class="badge" style="background:{RED}">PLASMIDO</span>'
+            loc_badge = f'<span class="badge" style="background:{RED}">PLASMID</span>'
         else:
-            loc_badge = f'<span class="badge" style="background:{LBLUE}">CROMOSOMA</span>'
+            loc_badge = f'<span class="badge" style="background:{LBLUE}">CHROMOSOME</span>'
         s_name = str(r.get("Sample",""))
         sample_td = f'<td class="sample" data-sample="{s_name}">{s_name}</td>' if not sample else ''
 
@@ -607,23 +607,23 @@ def html_amr_detail(integ_df, amr_mags_df, sample=None):
                  f'<td>{RISK_BADGE.get(r.get("Risk_level",""),"")}</td>'
                  f'<td class="links-cell">{links_html}</td></tr>\n')
 
-    sample_th = '<th>Muestra</th>' if not sample else ''
+    sample_th = '<th>Sample</th>' if not sample else ''
     return (f'<table class="data-table sortable filterable"><thead><tr>'
             f'{sample_th}'
-            f'<th>Organismo</th><th>Gen</th><th>Descripcion</th><th>Clase AMR</th><th>Ubicacion</th>'
-            f'<th>% Identidad</th><th>% Cobertura</th><th>Metodo</th>'
-            f'<th>Confianza</th><th>Riesgo</th><th>Links</th></tr></thead>'
+            f'<th>Organism</th><th>Gene</th><th>Description</th><th>AMR Class</th><th>Location</th>'
+            f'<th>% Identity</th><th>% Coverage</th><th>Method</th>'
+            f'<th>Confidence</th><th>Risk</th><th>Links</th></tr></thead>'
             f'<tbody>{rows}</tbody></table>'
-            f'<p class="note">Confianza: score compuesto (0-100) basado en identidad, cobertura, '
-            f'metodo de deteccion, concordancia KMA-MAG y calidad del MAG. '
-            f'Descripcion: referencia mas cercana de AMRFinderPlus (variante especifica). '
-            f'Links: NCBI Protein (accession) y CARD (base de datos de resistencia).</p>')
+            f'<p class="note">Confidence: composite score (0-100) based on identity, coverage, '
+            f'detection method, KMA-MAG concordance and MAG quality. '
+            f'Description: closest reference from AMRFinderPlus (specific variant). '
+            f'Links: NCBI Protein (accession) and CARD (resistance database).</p>')
 
 def html_concordance_table(conc_df, sample=None):
-    if conc_df.empty: return '<p class="no-data">Sin datos de concordancia KMA-MAG.</p>'
+    if conc_df.empty: return '<p class="no-data">No KMA-MAG concordance data.</p>'
     df = conc_df.copy()
     if sample: df = df[df['Sample']==sample]
-    if df.empty: return '<p class="no-data">Sin datos de concordancia para esta muestra.</p>'
+    if df.empty: return '<p class="no-data">No concordance data for this sample.</p>'
     rows = ''
     for _, r in df.iterrows():
         badge = CONCORDANCE_BADGE.get(r.get('Source',''), '')
@@ -639,21 +639,21 @@ def html_concordance_table(conc_df, sample=None):
                  f'<td>{badge}</td>'
                  f'<td>{kma_d}</td><td>{kma_i}</td>'
                  f'<td>{mag_i}</td><td>{mag_b}</td></tr>\n')
-    sample_th = '<th>Muestra</th>' if not sample else ''
+    sample_th = '<th>Sample</th>' if not sample else ''
     return (f'<table class="data-table sortable filterable"><thead><tr>'
             f'{sample_th}'
-            f'<th>Gen</th><th>Clase</th><th>Deteccion</th>'
+            f'<th>Gene</th><th>Class</th><th>Detection</th>'
             f'<th>KMA Depth</th><th>KMA Identity</th>'
             f'<th>MAG Identity</th><th>MAG (Bin)</th></tr></thead>'
             f'<tbody>{rows}</tbody></table>'
-            f'<p class="note">Reads+Contigs = maxima confianza. Solo Reads = posible reservorio no ensamblado. '
-            f'Solo Contigs = profundidad de reads insuficiente para KMA.</p>')
+            f'<p class="note">Reads+Contigs = maximum confidence. Reads only = possible unassembled reservoir. '
+            f'Contigs only = insufficient read depth for KMA.</p>')
 
 def html_plasmid_amr(integ_df, sample=None):
-    if integ_df.empty: return '<p class="no-data">Sin datos de plasmidos.</p>'
+    if integ_df.empty: return '<p class="no-data">No plasmid data.</p>'
     df = integ_df[integ_df['Location']=='PLASMID'].copy()
     if sample: df = df[df['Sample']==sample]
-    if df.empty: return '<p class="no-data">Sin genes AMR en plasmidos.</p>'
+    if df.empty: return '<p class="no-data">No AMR genes on plasmids.</p>'
     rows = ''
     for _, r in df.iterrows():
         s_name = str(r.get('Sample',''))
@@ -665,14 +665,14 @@ def html_plasmid_amr(integ_df, sample=None):
                  f'<td>{r.get("Contig","")}</td>'
                  f'<td><strong>{r.get("Plasmid_score",0):.2f}</strong></td>'
                  f'<td>{RISK_BADGE.get(r.get("Risk_level",""),"")}</td></tr>\n')
-    sample_th = '<th>Muestra</th>' if not sample else ''
+    sample_th = '<th>Sample</th>' if not sample else ''
     return (f'<table class="data-table sortable filterable"><thead><tr>'
             f'{sample_th}'
-            f'<th>Organismo</th><th>Gen</th><th>Clase AMR</th>'
-            f'<th>Contig</th><th>Score Plasmido</th><th>Riesgo</th></tr></thead>'
+            f'<th>Organism</th><th>Gene</th><th>AMR Class</th>'
+            f'<th>Contig</th><th>Plasmid Score</th><th>Risk</th></tr></thead>'
             f'<tbody>{rows}</tbody></table>'
-            f'<p class="note">Score plasmido (geNomad): &ge;0.9 seguro, 0.7-0.9 probable, &lt;0.7 dudoso. '
-            f'Genes AMR en plasmidos conjugativos representan riesgo de diseminacion horizontal.</p>')
+            f'<p class="note">Plasmid score (geNomad): &ge;0.9 confirmed, 0.7-0.9 probable, &lt;0.7 uncertain. '
+            f'AMR genes on conjugative plasmids pose a risk of horizontal dissemination.</p>')
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -883,7 +883,7 @@ def build_general_report(data, org_info, logo_b64, run_name):
     n_hq = len(checkm2[checkm2['Quality']=='HQ']) if not checkm2.empty else 0
     n_amr = len(integ) if not integ.empty else 0
     n_plasmid = len(integ[integ['Location']=='PLASMID']) if not integ.empty else 0
-    n_critical = len(integ[integ['Risk_level']=='CRITICO']) if not integ.empty else 0
+    n_critical = len(integ[integ['Risk_level']=='CRITICAL']) if not integ.empty else 0
 
     # Unclassified stats
     pct_unclass = run_stats['pct_unclassified'] if run_stats else 0
@@ -892,28 +892,28 @@ def build_general_report(data, org_info, logo_b64, run_name):
     unclass_color = RED if pct_unclass >= 25 else (ORANGE if pct_unclass >= 15 else GREEN)
     unclass_warn = ''
     if pct_unclass >= 25:
-        unclass_warn = f'<span style="color:{RED}; font-weight:700"> (ALERTA: &ge;25%)</span>'
+        unclass_warn = f'<span style="color:{RED}; font-weight:700"> (ALERT: &ge;25%)</span>'
     elif pct_unclass >= 15:
-        unclass_warn = f'<span style="color:{ORANGE}; font-weight:700"> (Atencion: &ge;15%)</span>'
+        unclass_warn = f'<span style="color:{ORANGE}; font-weight:700"> (Warning: &ge;15%)</span>'
 
     metrics_html = f"""<div class="metrics-row">
-        <div class="metric-card"><div class="value">{n_samples}</div><div class="label">Muestras</div></div>
-        <div class="metric-card"><div class="value">{total_raw_gb:.1f}</div><div class="label">Gb Raw Total</div></div>
-        <div class="metric-card"><div class="value">{total_clean_gb:.1f}</div><div class="label">Gb Clean Total</div></div>
-        <div class="metric-card"><div class="value">{mean_ret:.1f}%</div><div class="label">Retencion ({chr(177)}{std_ret:.1f}%)</div></div>
+        <div class="metric-card"><div class="value">{n_samples}</div><div class="label">Samples</div></div>
+        <div class="metric-card"><div class="value">{total_raw_gb:.1f}</div><div class="label">Total Raw Gb</div></div>
+        <div class="metric-card"><div class="value">{total_clean_gb:.1f}</div><div class="label">Total Clean Gb</div></div>
+        <div class="metric-card"><div class="value">{mean_ret:.1f}%</div><div class="label">Retention ({chr(177)}{std_ret:.1f}%)</div></div>
         <div class="metric-card"><div class="value" style="color:{unclass_color}">{pct_unclass}%</div><div class="label">Unclassified</div></div>
         <div class="metric-card"><div class="value">{n_mags}</div><div class="label">MAGs ({n_hq} HQ)</div></div>
-        <div class="metric-card"><div class="value">{n_amr}</div><div class="label">Genes AMR</div></div>
-        <div class="metric-card"><div class="value" style="color:{RED if n_critical>0 else GREEN}">{n_critical}</div><div class="label">Riesgo Critico</div></div>
+        <div class="metric-card"><div class="value">{n_amr}</div><div class="label">AMR Genes</div></div>
+        <div class="metric-card"><div class="value" style="color:{RED if n_critical>0 else GREEN}">{n_critical}</div><div class="label">Critical Risk</div></div>
     </div>"""
 
     # Alerts
     alerts = ''
     if n_critical > 0:
         alert_items = ''
-        for _, r in integ[integ['Risk_level']=='CRITICO'].iterrows():
-            alert_items += f'<p><strong>{r.get("Gene","")}</strong> ({r.get("AMR_class","")}) en <em>{r.get("Organism","")}</em> - plasmido score {r.get("Plasmid_score",0):.2f} [{r.get("Sample","")}]</p>'
-        alerts = f'<div class="alert-box"><p><strong>ALERTA: {n_critical} genes AMR criticos en plasmidos (transferibles)</strong></p>{alert_items}</div>'
+        for _, r in integ[integ['Risk_level']=='CRITICAL'].iterrows():
+            alert_items += f'<p><strong>{r.get("Gene","")}</strong> ({r.get("AMR_class","")}) in <em>{r.get("Organism","")}</em> - plasmid score {r.get("Plasmid_score",0):.2f} [{r.get("Sample","")}]</p>'
+        alerts = f'<div class="alert-box"><p><strong>ALERT: {n_critical} critical AMR genes on plasmids (transferable)</strong></p>{alert_items}</div>'
 
     # Charts
     retention_chart = fig_to_html(chart_retention(surv))
@@ -922,10 +922,10 @@ def build_general_report(data, org_info, logo_b64, run_name):
     risk_chart = fig_to_html(chart_risk_summary(integ))
 
     header = build_header(org_info, logo_b64, f'EpiTaxMAG Report - {run_name}',
-                          f'Reporte General | {n_samples} muestras', date_str)
+                          f'General Report | {n_samples} samples', date_str)
     footer = build_footer(org_info, date_str)
 
-    return f"""<!DOCTYPE html><html lang="es"><head>
+    return f"""<!DOCTYPE html><html lang="en"><head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EpiTaxMAG Report - {run_name}</title>
     <script type="text/javascript">{plotly_js}</script>
@@ -937,100 +937,100 @@ def build_general_report(data, org_info, logo_b64, run_name):
         {alerts}
 
         <div class="section">
-            <div class="section-header">Pipeline EpiTaxMAG - Flujo de Trabajo</div>
+            <div class="section-header">EpiTaxMAG Pipeline - Workflow</div>
             <div class="section-body">
-                <p>Diagrama completo del pipeline con versiones de software utilizadas.</p>
+                <p>Complete pipeline diagram with software versions used.</p>
                 {html_pipeline_dag()}
             </div>
         </div>
 
         <div class="sample-filter" id="sampleFilter">
-            <strong>Filtrar muestras:</strong>
+            <strong>Filter samples:</strong>
             {build_sample_checkboxes(surv)}
-            <p class="note" style="margin-top:0.4rem">Nota: los filtros de muestra solo afectan a las tablas, no a los graficos Plotly.</p>
+            <p class="note" style="margin-top:0.4rem">Note: sample filters affect only tables, not Plotly charts.</p>
         </div>
 
         <div class="section">
-            <div class="section-header">0. Estadisticas de la Carrera de Secuenciacion</div>
+            <div class="section-header">0. Sequencing Run Statistics</div>
             <div class="section-body">
-                <p>Metricas globales de la carrera Nanopore. El porcentaje de lecturas <strong>unclassified</strong>
-                (sin barcode asignado) indica el aprovechamiento del demultiplexado.
-                Un valor &ge;25% es preocupante y puede indicar problemas con el kit de barcodes o la calidad de la libreria.</p>
+                <p>Global metrics of the Nanopore run. The <strong>unclassified</strong> read percentage
+                (no barcode assigned) reflects demultiplexing efficiency.
+                A value &ge;25% is concerning and may indicate problems with the barcode kit or library quality.</p>
                 <table class="data-table">
-                    <thead><tr><th>Metrica</th><th>Valor</th><th>Evaluacion</th></tr></thead>
+                    <thead><tr><th>Metric</th><th>Value</th><th>Assessment</th></tr></thead>
                     <tbody>
-                        <tr><td>Total reads secuenciados</td><td><strong>{total_run_reads:,}</strong></td><td>-</td></tr>
-                        <tr><td>Reads clasificados (con barcode)</td><td>{total_run_reads - unclass_reads:,}</td><td>-</td></tr>
-                        <tr><td>Reads unclassified (sin barcode)</td><td>{unclass_reads:,}</td>
+                        <tr><td>Total reads sequenced</td><td><strong>{total_run_reads:,}</strong></td><td>-</td></tr>
+                        <tr><td>Classified reads (with barcode)</td><td>{total_run_reads - unclass_reads:,}</td><td>-</td></tr>
+                        <tr><td>Unclassified reads (no barcode)</td><td>{unclass_reads:,}</td>
                             <td style="color:{unclass_color}; font-weight:700">{pct_unclass}%{unclass_warn}</td></tr>
-                        <tr><td>Muestras demultiplexadas</td><td>{n_samples}</td><td>-</td></tr>
-                        <tr><td>Gb raw total (muestras)</td><td>{total_raw_gb:.2f}</td><td>-</td></tr>
-                        <tr><td>Gb clean total (tras filtrado)</td><td>{total_clean_gb:.2f}</td><td>-</td></tr>
-                        <tr><td>Retencion media (reads)</td><td>{mean_ret:.1f}% ({chr(177)}{std_ret:.1f}%)</td>
+                        <tr><td>Demultiplexed samples</td><td>{n_samples}</td><td>-</td></tr>
+                        <tr><td>Total raw Gb (samples)</td><td>{total_raw_gb:.2f}</td><td>-</td></tr>
+                        <tr><td>Total clean Gb (after filtering)</td><td>{total_clean_gb:.2f}</td><td>-</td></tr>
+                        <tr><td>Mean retention (reads)</td><td>{mean_ret:.1f}% ({chr(177)}{std_ret:.1f}%)</td>
                             <td style="color:{'var(--green)' if mean_ret>=70 else 'var(--orange)'}">
-                            {'Buena' if mean_ret>=70 else 'Revisar filtros'}</td></tr>
+                            {'Good' if mean_ret>=70 else 'Review filters'}</td></tr>
                     </tbody>
                 </table>
             </div>
         </div>
 
         <div class="section">
-            <div class="section-header">1. Retencion de Lecturas por Muestra</div>
+            <div class="section-header">1. Read Retention by Sample</div>
             <div class="section-body">
-                <p>Comparativa raw vs clean tras Porechop ABI (trimming) + Chopper (filtrado Q/longitud). Celdas verdes: &ge;1 Gb limpio.</p>
+                <p>Raw vs clean comparison after Porechop ABI (trimming) + Chopper (Q/length filtering). Green cells: &ge;1 Gb clean.</p>
                 {html_survival_table(surv)}
                 {retention_chart}
             </div>
         </div>
 
         <div class="section">
-            <div class="section-header">2. Recuperacion de MAGs</div>
+            <div class="section-header">2. MAG Recovery</div>
             <div class="section-body">
-                <p>MAGs recuperados por MetaBAT2 + MaxBin2 + SemiBin2, refinados por DAS Tool, evaluados por CheckM2 y clasificados por GTDB-Tk (r232).</p>
+                <p>MAGs recovered by MetaBAT2 + MaxBin2 + SemiBin2, refined by DAS Tool, evaluated by CheckM2 and classified by GTDB-Tk (r232).</p>
                 {html_mag_catalog(checkm2, data['taxonomy'])}
                 {quality_chart}
             </div>
         </div>
 
         <div class="search-box">
-            <input type="text" id="searchAmr" placeholder="Buscar gen, organismo, clase AMR...">
+            <input type="text" id="searchAmr" placeholder="Search gene, organism, AMR class...">
         </div>
 
         <div class="section">
-            <div class="section-header">3. Resistencia Antimicrobiana (AMR) en MAGs</div>
+            <div class="section-header">3. Antimicrobial Resistance (AMR) in MAGs</div>
             <div class="section-body">
-                <p>Genes AMR detectados por AMRFinderPlus en MAGs. Ubicacion cromosoma/plasmido determinada por geNomad. Confianza: score compuesto (identidad + cobertura + metodo + concordancia + calidad MAG).</p>
+                <p>AMR genes detected by AMRFinderPlus in MAGs. Chromosome/plasmid location determined by geNomad. Confidence: composite score (identity + coverage + method + concordance + MAG quality).</p>
                 {html_amr_detail(integ, amr_mags)}
                 {heatmap_chart}
             </div>
         </div>
 
         <div class="section">
-            <div class="section-header">4. Concordancia KMA Reads vs MAG Contigs</div>
+            <div class="section-header">4. Concordance: KMA Reads vs MAG Contigs</div>
             <div class="section-body">
-                <p>Comparacion de genes AMR detectados en reads (KMA/ResFinder, fase TAX) vs contigs ensamblados (AMRFinderPlus, fase MAG). Deteccion en ambos = maxima confianza. Solo en reads = posible reservorio no ensamblado.</p>
+                <p>Comparison of AMR genes detected in reads (KMA/ResFinder, TAX phase) vs assembled contigs (AMRFinderPlus, MAG phase). Detection in both = maximum confidence. Reads only = possible unassembled reservoir.</p>
                 {html_concordance_table(conc)}
             </div>
         </div>
 
         <div class="section">
-            <div class="section-header">5. Genes AMR en Plasmidos</div>
+            <div class="section-header">5. AMR Genes on Plasmids</div>
             <div class="section-body">
-                <p>Genes AMR localizados en contigs clasificados como plasmidicos por geNomad. Representan riesgo de transferencia horizontal entre organismos.</p>
+                <p>AMR genes located on contigs classified as plasmidic by geNomad. They represent a risk of horizontal transfer between organisms.</p>
                 {html_plasmid_amr(integ)}
             </div>
         </div>
 
         <div class="section">
-            <div class="section-header">6. Evaluacion de Riesgo</div>
+            <div class="section-header">6. Risk Assessment</div>
             <div class="section-body">
                 {risk_chart}
                 <div class="note" style="margin-top:1rem">
-                    <strong>Niveles de riesgo:</strong><br>
-                    CRITICO = resistencia clave (beta-lactam, quinolona, colistina) en plasmido<br>
-                    ALTO = cualquier AMR en plasmido (transferible)<br>
-                    MEDIO = resistencia clave en cromosoma<br>
-                    BAJO = AMR no critica en cromosoma
+                    <strong>Risk levels:</strong><br>
+                    CRITICAL = key resistance (beta-lactam, quinolone, colistin) on plasmid<br>
+                    HIGH = any AMR on plasmid (transferable)<br>
+                    MEDIUM = key resistance on chromosome<br>
+                    LOW = non-critical AMR on chromosome
                 </div>
             </div>
         </div>
@@ -1073,33 +1073,33 @@ def build_sample_report(sample, data, org_info, logo_b64, run_name):
     n_hq = len(s_checkm2[s_checkm2['Quality']=='HQ']) if not s_checkm2.empty else 0
     n_amr = len(s_integ)
     n_plas = len(s_integ[s_integ['Location']=='PLASMID']) if not s_integ.empty else 0
-    n_crit = len(s_integ[s_integ['Risk_level']=='CRITICO']) if not s_integ.empty else 0
+    n_crit = len(s_integ[s_integ['Risk_level']=='CRITICAL']) if not s_integ.empty else 0
 
     metrics_html = f"""
     <div class="metrics-row">
-        <div class="metric-card"><div class="value">{raw_gb}</div><div class="label">Gb Raw</div></div>
-        <div class="metric-card"><div class="value">{clean_gb}</div><div class="label">Gb Clean</div></div>
-        <div class="metric-card"><div class="value">{pct_ret}</div><div class="label">Retencion</div></div>
+        <div class="metric-card"><div class="value">{raw_gb}</div><div class="label">Raw Gb</div></div>
+        <div class="metric-card"><div class="value">{clean_gb}</div><div class="label">Clean Gb</div></div>
+        <div class="metric-card"><div class="value">{pct_ret}</div><div class="label">Retention</div></div>
         <div class="metric-card"><div class="value">{n_bins}</div><div class="label">MAGs ({n_hq} HQ)</div></div>
-        <div class="metric-card"><div class="value">{n_amr}</div><div class="label">Genes AMR</div></div>
-        <div class="metric-card"><div class="value">{n_plas}</div><div class="label">En Plasmido</div></div>
-        <div class="metric-card"><div class="value" style="color:{RED if n_crit>0 else GREEN}">{n_crit}</div><div class="label">Criticos</div></div>
+        <div class="metric-card"><div class="value">{n_amr}</div><div class="label">AMR Genes</div></div>
+        <div class="metric-card"><div class="value">{n_plas}</div><div class="label">On Plasmid</div></div>
+        <div class="metric-card"><div class="value" style="color:{RED if n_crit>0 else GREEN}">{n_crit}</div><div class="label">Critical</div></div>
     </div>"""
 
     # Alert
     alerts = ''
     if n_crit > 0:
         items = ''
-        for _, r in s_integ[s_integ['Risk_level']=='CRITICO'].iterrows():
-            items += f'<p><strong>{r.get("Gene","")}</strong> ({r.get("AMR_class","")}) en <em>{r.get("Organism","")}</em> - plasmido score {r.get("Plasmid_score",0):.2f}</p>'
-        alerts = f'<div class="alert-box"><p><strong>ALERTA: {n_crit} genes AMR criticos</strong></p>{items}</div>'
+        for _, r in s_integ[s_integ['Risk_level']=='CRITICAL'].iterrows():
+            items += f'<p><strong>{r.get("Gene","")}</strong> ({r.get("AMR_class","")}) in <em>{r.get("Organism","")}</em> - plasmid score {r.get("Plasmid_score",0):.2f}</p>'
+        alerts = f'<div class="alert-box"><p><strong>ALERT: {n_crit} critical AMR genes</strong></p>{items}</div>'
 
     header = build_header(org_info, logo_b64, f'EpiTaxMAG - {sample}',
-                          f'Reporte Individual | Run: {run_name} ({n_samples} muestras, {total_clean:.1f} Gb clean, {mean_ret:.1f}% retencion, {pct_unclass}% unclassified)',
+                          f'Individual Report | Run: {run_name} ({n_samples} samples, {total_clean:.1f} Gb clean, {mean_ret:.1f}% retention, {pct_unclass}% unclassified)',
                           date_str)
     footer = build_footer(org_info, date_str)
 
-    return f"""<!DOCTYPE html><html lang="es"><head>
+    return f"""<!DOCTYPE html><html lang="en"><head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>EpiTaxMAG - {sample}</title>
     <script type="text/javascript">{plotly_js}</script>
@@ -1111,37 +1111,37 @@ def build_sample_report(sample, data, org_info, logo_b64, run_name):
         {alerts}
 
         <div class="section">
-            <div class="section-header">1. Catalogo de MAGs</div>
+            <div class="section-header">1. MAG Catalog</div>
             <div class="section-body">
-                <p>MAGs recuperados, clasificados taxonomicamente por GTDB-Tk (r232) y evaluados por CheckM2.</p>
+                <p>MAGs recovered, taxonomically classified by GTDB-Tk (r232) and evaluated by CheckM2.</p>
                 {html_mag_catalog(s_checkm2, data['taxonomy'], sample)}
             </div>
         </div>
 
         <div class="search-box">
-            <input type="text" id="searchAmr" placeholder="Buscar gen, organismo, clase AMR...">
+            <input type="text" id="searchAmr" placeholder="Search gene, organism, AMR class...">
         </div>
 
         <div class="section">
-            <div class="section-header">2. Resistencia Antimicrobiana Detallada</div>
+            <div class="section-header">2. Detailed Antimicrobial Resistance</div>
             <div class="section-body">
-                <p>Genes AMR detectados por AMRFinderPlus. Ubicacion (cromosoma/plasmido) por geNomad. Score de confianza compuesto.</p>
+                <p>AMR genes detected by AMRFinderPlus. Location (chromosome/plasmid) by geNomad. Composite confidence score.</p>
                 {html_amr_detail(s_integ, s_amr_mags, sample)}
             </div>
         </div>
 
         <div class="section">
-            <div class="section-header">3. Concordancia KMA Reads vs MAG Contigs</div>
+            <div class="section-header">3. Concordance: KMA Reads vs MAG Contigs</div>
             <div class="section-body">
-                <p>Deteccion cruzada: reads (KMA) vs contigs (AMRFinderPlus). Concordancia = maxima confianza. Solo reads = posible reservorio no ensamblado.</p>
+                <p>Cross detection: reads (KMA) vs contigs (AMRFinderPlus). Concordance = maximum confidence. Reads only = possible unassembled reservoir.</p>
                 {html_concordance_table(s_conc, sample)}
             </div>
         </div>
 
         <div class="section">
-            <div class="section-header">4. Genes AMR en Plasmidos</div>
+            <div class="section-header">4. AMR Genes on Plasmids</div>
             <div class="section-body">
-                <p>AMR en elementos moviles. Score geNomad &ge;0.9 = plasmido confirmado.</p>
+                <p>AMR on mobile elements. geNomad score &ge;0.9 = confirmed plasmid.</p>
                 {html_plasmid_amr(s_integ, sample)}
             </div>
         </div>
@@ -1156,16 +1156,16 @@ def build_sample_report(sample, data, org_info, logo_b64, run_name):
 # ═══════════════════════════════════════════════════════════════
 
 def main():
-    parser = argparse.ArgumentParser(description='Genera reportes HTML EpiTaxMAG')
+    parser = argparse.ArgumentParser(description='Generate EpiTaxMAG HTML reports')
     parser.add_argument('--results-dir', required=True)
     parser.add_argument('--run-name', required=True)
-    parser.add_argument('--input-dir', default=None, help='Dir con fastq.gz originales (para stats de unclassified)')
+    parser.add_argument('--input-dir', default=None, help='Dir with original fastq.gz (for unclassified stats)')
     parser.add_argument('--branding', default='branding/')
     parser.add_argument('--output-dir', required=True)
     args = parser.parse_args()
 
     rd = args.results_dir
-    print(f'[INFO] Generando reportes EpiTaxMAG para {args.run_name}')
+    print(f'[INFO] Generating EpiTaxMAG reports for {args.run_name}')
 
     org_info, logo_b64 = load_branding(args.branding)
     print(f'[INFO] Branding: {org_info.get("name","")}')
@@ -1173,9 +1173,9 @@ def main():
     # Run stats (unclassified)
     run_stats = None
     if args.input_dir:
-        print(f'[INFO] Calculando estadisticas de carrera desde {args.input_dir}...')
+        print(f'[INFO] Computing run statistics from {args.input_dir}...')
         run_stats = load_run_stats(args.input_dir)
-        print(f'[INFO] Carrera: {run_stats["total_reads"]:,} reads totales, '
+        print(f'[INFO] Run: {run_stats["total_reads"]:,} total reads, '
               f'{run_stats["unclassified_reads"]:,} unclassified ({run_stats["pct_unclassified"]}%)')
 
     # Load all data
@@ -1190,8 +1190,8 @@ def main():
     integration = load_integration(rd)
     concordance = compute_concordance(kma, amr_mags)
 
-    print(f'[INFO] Datos: {len(survival)} muestras, {len(checkm2)} MAGs, '
-          f'{len(integration)} AMR integrados, {len(kma)} KMA hits')
+    print(f'[INFO] Data: {len(survival)} samples, {len(checkm2)} MAGs, '
+          f'{len(integration)} integrated AMR, {len(kma)} KMA hits')
 
     data = {'survival': survival, 'checkm2': checkm2, 'taxonomy': taxonomy,
             'amr_mags': amr_mags, 'kma': kma, 'integration': integration,
@@ -1205,7 +1205,7 @@ def main():
     general_path = f'{args.output_dir}/{args.run_name}_epitaxmag_report.html'
     with open(general_path, 'w', encoding='utf-8') as f:
         f.write(general_html)
-    print(f'[OK] Reporte general: {general_path}')
+    print(f'[OK] General report: {general_path}')
 
     # Per-sample reports
     samples = sorted(set())
@@ -1219,15 +1219,15 @@ def main():
         sample_path = f'{args.output_dir}/per_sample/{sample}_report.html'
         with open(sample_path, 'w', encoding='utf-8') as f:
             f.write(sample_html)
-        print(f'[OK] Reporte muestra: {sample_path}')
+        print(f'[OK] Sample report: {sample_path}')
 
     # Export combined TSV for external analysis
     if not integration.empty:
         tsv_path = f'{args.output_dir}/{args.run_name}_amr_pathogen_matrix.tsv'
         integration.to_csv(tsv_path, sep='\t', index=False)
-        print(f'[OK] TSV exportado: {tsv_path}')
+        print(f'[OK] Exported TSV: {tsv_path}')
 
-    print(f'\n[DONE] {len(samples)+1} reportes generados en {args.output_dir}/')
+    print(f'\n[DONE] {len(samples)+1} reports generated in {args.output_dir}/')
 
 
 if __name__ == '__main__':

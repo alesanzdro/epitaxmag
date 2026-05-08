@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Script completo para análisis exhaustivo de archivos FASTQ de Dorado
-Incluye métricas de secuencia, calidades ASCII, calidades Dorado (qs:f:)
-y calidad personalizada global (q_custom_mean)
+Comprehensive analysis of Dorado FASTQ files.
+Reports sequence metrics, ASCII quality, Dorado quality (qs:f:) and a
+custom global quality score (q_custom_mean).
 """
 
 import os
@@ -23,10 +23,10 @@ def prob_error_to_phred(p):
 
 def calculate_q_custom_mean(ascii_quals):
     """
-    Calcula la calidad global (q_custom_mean) de una lectura:
-      1. Convierte cada Q en probabilidad de error.
-      2. Calcula la media aritmética de esas probabilidades.
-      3. Reconviértel a Phred.
+    Compute the global per-read quality (q_custom_mean):
+      1. Convert each Q to its error probability.
+      2. Take the arithmetic mean of those probabilities.
+      3. Convert the mean back to Phred.
     """
     probs = [phred_to_prob_error(q) for q in ascii_quals]
     p_avg = sum(probs) / len(probs)
@@ -86,7 +86,7 @@ def analyze_fastq_complete(file_path, tagdelete):
 
                 lines = []
 
-    # métricas básicas
+    # basic metrics
     all_lengths.sort()
     total_reads = read_count
     min_len = all_lengths[0] if all_lengths else 0
@@ -105,13 +105,13 @@ def analyze_fastq_complete(file_path, tagdelete):
                 n50 = L
                 break
 
-    # medias - CORRECCIÓN AQUÍ
+    # mean values
     all_dorado_quals = simplex_dorado_quals + duplex_dorado_quals
     mean_dorado = statistics.mean(all_dorado_quals) if all_dorado_quals else 0
     mean_ascii = statistics.mean(all_ascii_quals) if all_ascii_quals else 0
     mean_custom = statistics.mean(all_custom_quals) if all_custom_quals else 0
 
-    # preparar salida
+    # build output
     sample = os.path.basename(file_path).replace(tagdelete, '').replace('.fastq.gz','')
     return sample, {
         'total_reads': total_reads,
@@ -127,10 +127,10 @@ def analyze_fastq_complete(file_path, tagdelete):
     }
 
 def main():
-    parser = argparse.ArgumentParser(description="Análisis completo FASTQ con q_custom_mean")
-    parser.add_argument("dir", help="Directorio con .fastq.gz")
-    parser.add_argument("-t","--threads", type=int, default=4, help="Hilos")
-    parser.add_argument("--tagdelete", default="", help="Texto a quitar del nombre")
+    parser = argparse.ArgumentParser(description="Full FASTQ analysis with q_custom_mean")
+    parser.add_argument("dir", help="Directory containing .fastq.gz files")
+    parser.add_argument("-t","--threads", type=int, default=4, help="Worker threads")
+    parser.add_argument("--tagdelete", default="", help="Substring to strip from sample names")
     args = parser.parse_args()
 
     files = [os.path.join(args.dir,f) for f in os.listdir(args.dir) if f.endswith('.fastq.gz')]

@@ -1,0 +1,9 @@
+# Skani — fast ANI-based MAG classification (GTDB-Tk replacement when RAM-tight).
+# EpiTaxMAG — FISABIO EPIMOL
+name: nf-mag-skani
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - skani>=0.3.0     # v0.3 introduced single-file DB and ~30-40% RAM reduction
+  - python>=3.10     # post-processing of skani output into GTDB-Tk-compatible TSV

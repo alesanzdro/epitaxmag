@@ -40,17 +40,17 @@ LINE_MEAN   = '#E05C2A'
 LINE_N50    = '#2C8A4A'
 
 def parse_float(val):
-    """Parsea flotantes con coma decimal (formato europeo)."""
+    """Parse floats with decimal comma (European decimal format)."""
     if isinstance(val, (int, float)):
         return float(val)
     return float(str(val).replace(',', '.'))
 
 def load_data(csv_path):
-    # Auto-detectar separador (tab o coma)
+    # Auto-detect separator (tab or comma)
     with open(csv_path, 'r') as f:
         header = f.readline()
     sep = '\t' if '\t' in header else (';' if ';' in header else ',')
-    
+
     df = pd.read_csv(csv_path, sep=sep)
     numeric_cols = ['mean_length', 'median_length', 'gc_percentage',
                     'dorado_mean_q', 'custom_mean_q', 'n50',
@@ -62,7 +62,7 @@ def load_data(csv_path):
     return df
 
 def fig_to_image(fig, dpi=150):
-    """Convierte figura matplotlib a imagen para ReportLab."""
+    """Convert a matplotlib figure to an image for ReportLab."""
     buf = io.BytesIO()
     fig.savefig(buf, format='png', dpi=dpi, bbox_inches='tight',
                 facecolor='white', edgecolor='none')
@@ -72,8 +72,8 @@ def fig_to_image(fig, dpi=150):
 
 def make_piechart(df):
     """
-    Donut chart central pequeño con líneas radiales hacia etiquetas externas.
-    Estilo similar a pycoQC / ggrepel — sin leyenda, etiquetas directas.
+    Small central donut chart with radial leader lines to external labels.
+    Style similar to pycoQC / ggrepel — no legend, direct labels.
     """
     df_plot = df[~df['Sample'].str.lower().str.startswith('negativo')].copy()
     n = len(df_plot)
@@ -81,7 +81,7 @@ def make_piechart(df):
     labels = df_plot['Sample'].values
     total  = reads.sum()
 
-    # Paleta garantizada para N colores (hasta 128)
+    # Guaranteed palette for N colors (up to 128)
     def build_palette(n):
         palette = []
         cmaps = ['tab20', 'tab20b', 'tab20c', 'Set3', 'Set2', 'Paired', 'Dark2', 'Accent']
@@ -90,7 +90,7 @@ def make_piechart(df):
             nc = cmap.N if hasattr(cmap, 'N') else 20
             for i in range(nc):
                 palette.append(cmap(i / nc))
-        # Si aún faltan colores, rellenar con HSV distribuido
+        # If colors are still missing, fill with HSV distributed
         if len(palette) < n:
             for i in range(n - len(palette)):
                 hue = (i * 0.618033988749895) % 1.0  # golden ratio spacing
@@ -107,11 +107,11 @@ def make_piechart(df):
     ax.set_ylim(-2.8, 2.8)
     ax.axis('off')
 
-    # Radio del donut
+    # Donut radius
     r_inner = 0.55
     r_outer = 1.0
 
-    # Dibujar wedges manualmente para control total
+    # Draw wedges manually for full control
     angles = np.cumsum([0] + list(reads / total * 360))
     start_angles = angles[:-1]
     end_angles   = angles[1:]
@@ -130,33 +130,33 @@ def make_piechart(df):
         )
         ax.add_patch(wedge)
 
-    # Texto central
+    # Center text
     ax.text(0, 0.08, 'Total', ha='center', va='center',
             fontsize=10, fontweight='bold', color='#2C5F8A')
     ax.text(0, -0.15, f'{total:,.0f}', ha='center', va='center',
             fontsize=9, color='#444444')
 
-    # ── Etiquetas con líneas radiales ────────────────────────────────────────
-    # Radio donde empieza la línea (exterior del donut)
+    # ── Labels with radial leader lines ──────────────────────────────────────
+    # Radius where the line starts (outside of the donut)
     r_line_start = 1.05
-    # Radio donde termina la línea (zona de texto)
+    # Radius where the line ends (text area)
     r_label      = 2.55
 
-    # Calcular ángulo medio de cada wedge y posición
+    # Compute mid-angle of each wedge and position
     mid_angles = [(start_angles[i] + end_angles[i]) / 2 for i in range(n)]
 
-    # Convertir a radianes y calcular coords
+    # Convert to radians and compute coordinates
     label_positions = []
     for i, mid_deg in enumerate(mid_angles):
         mid_rad = np.deg2rad(mid_deg)
-        # Punto de arranque (borde exterior del donut)
+        # Start point (outer edge of the donut)
         x0 = r_line_start * np.cos(mid_rad)
         y0 = r_line_start * np.sin(mid_rad)
-        # Punto intermedio (codo de la línea)
+        # Intermediate point (line elbow)
         r_mid = r_outer + 0.38
         xm = r_mid * np.cos(mid_rad)
         ym = r_mid * np.sin(mid_rad)
-        # Punto final (etiqueta)
+        # End point (label)
         xl = r_label * np.cos(mid_rad)
         yl = r_label * np.sin(mid_rad)
         label_positions.append((x0, y0, xm, ym, xl, yl, mid_deg))
@@ -164,13 +164,13 @@ def make_piechart(df):
     for i, (x0, y0, xm, ym, xl, yl, mid_deg) in enumerate(label_positions):
         pct = reads[i] / total * 100
 
-        # Solo dibujar etiqueta si el segmento es visible (>0.3%)
+        # Only draw label if the segment is visible (>0.3%)
         if pct < 0.3:
             continue
 
-        # Línea codo: punto del wedge → codo → texto
+        # Elbow line: wedge point -> elbow -> text
         ha = 'left' if xl >= 0 else 'right'
-        # Punto de fin de línea horizontal
+        # Endpoint of horizontal line
         x_end = (r_label + 0.05) * np.sign(xl) if xl != 0 else 0
 
         ax.annotate(
@@ -185,7 +185,7 @@ def make_piechart(df):
             )
         )
 
-        # Texto: nombre de muestra + porcentaje
+        # Text: sample name + percentage
         fontsize = 5.0 if n > 60 else (5.5 if n > 40 else 6.5)
         label_text = f'{labels[i]}\n{pct:.1f}%'
         ax.text(xl, yl, label_text,
@@ -194,7 +194,7 @@ def make_piechart(df):
                 color='#222222',
                 linespacing=1.2)
 
-    ax.set_title('Distribución de lecturas por muestra',
+    ax.set_title('Read Distribution by Sample',
                  fontsize=14, fontweight='bold', color='#2C5F8A',
                  y=0.97)
 
@@ -202,24 +202,24 @@ def make_piechart(df):
 
 def make_barline_chart(df):
     """
-    Gráfico horizontal: barras (total_reads) + líneas mean_length y N50.
-    Barras anchas, letra más grande, márgenes ajustados.
+    Horizontal chart: bars (total_reads) + mean_length and N50 lines.
+    Wider bars, larger font, tight margins.
     """
     n = len(df)
-    # Altura dinámica muy ajustada para aprovechar espacio
+    # Dynamic height tightly tuned to use the available space
     fig_h = max(14, n * 0.22)
-    
+
     fig, ax1 = plt.subplots(figsize=(15, fig_h), facecolor='white')
-    # Márgenes muy ajustados
+    # Tight margins
     fig.subplots_adjust(left=0.22, right=0.96, top=0.96, bottom=0.04)
 
     y = np.arange(n)
-    bar_h = 0.75  # Barras más anchas = aspecto más moderno
+    bar_h = 0.75  # Wider bars = more modern look
 
-    # Barras horizontales con gradiente de color por valor
+    # Horizontal bars with color gradient by value
     norm_reads = df['total_reads'] / df['total_reads'].max()
     bar_colors = [plt.cm.Blues(0.4 + 0.5 * v) for v in norm_reads]
-    
+
     bars = ax1.barh(y, df['total_reads'], height=bar_h,
                     color=bar_colors, alpha=0.88,
                     edgecolor='white', linewidth=0.4,
@@ -238,7 +238,7 @@ def make_barline_chart(df):
     ax1.set_axisbelow(True)
     ax1.grid(axis='x', linestyle='--', alpha=0.25, color='#AAAAAA', linewidth=0.7)
 
-    # Eje secundario — Mean length y N50
+    # Secondary axis — Mean length and N50
     ax2 = ax1.twiny()
     ax2.plot(df['mean_length'], y, 'o-',
              color=LINE_MEAN, linewidth=1.5, markersize=4,
@@ -247,14 +247,14 @@ def make_barline_chart(df):
              color=LINE_N50, linewidth=1.5, markersize=4,
              label='N50', alpha=0.92, zorder=5)
 
-    ax2.set_xlabel('Longitud (bp)', fontsize=10, color='#555555', labelpad=6)
+    ax2.set_xlabel('Length (bp)', fontsize=10, color='#555555', labelpad=6)
     ax2.tick_params(axis='x', colors='#555555', labelsize=8.5)
     ax2.spines['bottom'].set_visible(False)
     ax2.spines['left'].set_visible(False)
     ax2.spines['right'].set_visible(False)
     ax2.spines['top'].set_color('#CCCCCC')
 
-    # Leyenda combinada
+    # Combined legend
     patch_reads = mpatches.Patch(color=plt.cm.Blues(0.7), alpha=0.88, label='Total reads')
     line_mean   = plt.Line2D([0],[0], color=LINE_MEAN, marker='o', markersize=5, label='Mean Length')
     line_n50    = plt.Line2D([0],[0], color=LINE_N50, marker='s', linestyle='--', markersize=5, label='N50')
@@ -262,13 +262,13 @@ def make_barline_chart(df):
                loc='lower right', fontsize=9, framealpha=0.9,
                edgecolor='#CCCCCC')
 
-    ax1.set_title('Total reads, Mean Length y N50 por muestra',
+    ax1.set_title('Total reads, Mean Length and N50 per sample',
                   fontsize=13, fontweight='bold', color='#2C5F8A', pad=10)
 
     return fig
 
 def make_summary_table(df):
-    """Calcula estadísticas resumen."""
+    """Compute summary statistics."""
     cols = ['total_reads', 'mean_length', 'n50', 'gc_percentage', 'dorado_mean_q']
     labels = {
         'total_reads':    'Total reads',
@@ -322,19 +322,19 @@ def build_pdf(csv_path, output_path):
 
     story = []
 
-    # ── PÁGINA 1: Resumen + Tabla completa ──────────────────────────────────
+    # ── PAGE 1: Summary + Full table ────────────────────────────────────────
 
     story.append(Paragraph(f'QC Report — {run_name}', st_title))
     story.append(Paragraph(
-        f'Generado el {date_str} &nbsp;|&nbsp; {n_samples} muestras &nbsp;|&nbsp; '
+        f'Generated on {date_str} &nbsp;|&nbsp; {n_samples} samples &nbsp;|&nbsp; '
         f'Pipeline: Dorado 1.3.1 · duplex · sup@v5.2.0',
         st_sub))
     story.append(HRFlowable(width='100%', thickness=1.5, color=COL_BLUE, spaceAfter=10))
 
-    # Tabla resumen estadístico
-    story.append(Paragraph('Estadísticas globales', st_h1))
-    
-    summary_data = [['Métrica', 'Media', 'Mediana', 'Desv. Est.', 'Mínimo', 'Máximo']]
+    # Statistical summary table
+    story.append(Paragraph('Global statistics', st_h1))
+
+    summary_data = [['Metric', 'Mean', 'Median', 'Std. Dev.', 'Min', 'Max']]
     summary_data += make_summary_table(df)
     
     t_sum = Table(summary_data, colWidths=[4.5*cm, 2.8*cm, 2.8*cm, 2.8*cm, 2.8*cm, 2.8*cm])
@@ -357,12 +357,12 @@ def build_pdf(csv_path, output_path):
     story.append(t_sum)
     story.append(Spacer(1, 14))
 
-    # Tabla detalle por muestra
-    story.append(Paragraph('Datos por muestra', st_h1))
+    # Per-sample detail table
+    story.append(Paragraph('Per-sample data', st_h1))
 
     display_cols = ['Sample', 'total_reads', 'max_length', 'mean_length',
                     'median_length', 'n50', 'gc_percentage', 'dorado_mean_q']
-    col_headers  = ['Muestra', 'Total reads', 'Max len', 'Mean len',
+    col_headers  = ['Sample', 'Total reads', 'Max len', 'Mean len',
                     'Median len', 'N50', 'GC %', 'Q score']
     col_widths   = [4.8*cm, 1.9*cm, 1.6*cm, 1.9*cm, 1.9*cm, 1.6*cm, 1.6*cm, 1.7*cm]
 
@@ -381,7 +381,7 @@ def build_pdf(csv_path, output_path):
 
     t_detail = Table(table_data, colWidths=col_widths, repeatRows=1)
     
-    # Colorear celdas de Q score
+    # Color the Q-score cells
     q_styles = []
     for i, (_, row) in enumerate(df.iterrows(), start=1):
         q = row['dorado_mean_q']
@@ -411,18 +411,18 @@ def build_pdf(csv_path, output_path):
     story.append(t_detail)
     story.append(Spacer(1, 6))
     
-    # Leyenda colores Q
+    # Q-score color legend
     legend_text = (
-        '<font color="#388E3C">■</font> Q≥20 (excelente) &nbsp;&nbsp;'
-        '<font color="#F9A825">■</font> Q≥15 (aceptable) &nbsp;&nbsp;'
-        '<font color="#C62828">■</font> Q&lt;15 (bajo)'
+        '<font color="#388E3C">■</font> Q≥20 (excellent) &nbsp;&nbsp;'
+        '<font color="#F9A825">■</font> Q≥15 (acceptable) &nbsp;&nbsp;'
+        '<font color="#C62828">■</font> Q&lt;15 (low)'
     )
     story.append(Paragraph(legend_text, ParagraphStyle('leg', parent=styles['Normal'],
                                                         fontSize=7, textColor=COL_GREY)))
 
-    # ── PÁGINA 2: Piechart ───────────────────────────────────────────────────
+    # ── PAGE 2: Piechart ─────────────────────────────────────────────────────
     story.append(PageBreak())
-    story.append(Paragraph('Distribución de lecturas por muestra', st_h1))
+    story.append(Paragraph('Read Distribution by Sample', st_h1))
     story.append(Spacer(1, 6))
 
     fig_pie = make_piechart(df)
@@ -430,26 +430,26 @@ def build_pdf(csv_path, output_path):
     img_pie = Image(buf_pie, width=17*cm, height=14*cm)
     story.append(img_pie)
 
-    # ── PÁGINA 3: Gráfico barras + líneas ────────────────────────────────────
+    # ── PAGE 3: Bar + line chart ─────────────────────────────────────────────
     story.append(PageBreak())
-    story.append(Paragraph('Total reads, Mean Length y N50 por muestra', st_h1))
+    story.append(Paragraph('Total reads, Mean Length and N50 per sample', st_h1))
     story.append(Spacer(1, 4))
 
     fig_bar = make_barline_chart(df)
     buf_bar = fig_to_image(fig_bar, dpi=140)
-    
-    # Escalar para ocupar casi toda la página
+
+    # Scale to fill almost the whole page
     img_h = min(26*cm, max(16*cm, n_samples * 0.26 * cm))
     img_bar = Image(buf_bar, width=18*cm, height=img_h)
     story.append(img_bar)
 
     # Build
     doc.build(story)
-    print(f"PDF generado: {output_path}")
+    print(f"PDF generated: {output_path}")
 
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        print(f"Uso: python3 {sys.argv[0]} <qc_file.csv> [output.pdf]")
+        print(f"Usage: python3 {sys.argv[0]} <qc_file.csv> [output.pdf]")
         sys.exit(1)
     
     csv_path = sys.argv[1]

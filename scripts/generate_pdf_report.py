@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 """
 generate_pdf_report.py
-Genera reporte PDF profesional completo para EpiTaxMAG.
+Generate a complete professional PDF report for EpiTaxMAG.
 
-Secciones:
-  A. Resumen ejecutivo
-  B. Estadisticas de carrera
-  C. Retencion de lecturas
-  D. Catalogo de MAGs
-  E. AMR detallado con confianza
-  F. Concordancia KMA-MAG
-  G. Virulencia (VFDB)
-  H. Plasmidos y movilidad
-  I. Integrones
-  J. Evaluacion de riesgo
-  K. Desglose por muestra
-  L. Software y versiones
+Sections:
+  A. Executive summary
+  B. Run statistics
+  C. Read retention
+  D. MAG catalog
+  E. Detailed AMR with confidence
+  F. KMA-MAG concordance
+  G. Virulence (VFDB)
+  H. Plasmids and mobility
+  I. Integrons
+  J. Risk assessment
+  K. Per-sample breakdown
+  L. Software and versions
 
-Uso:
+Usage:
   python3 scripts/generate_pdf_report.py \
       --results-dir results/260226_EPIM232 \
       --run-name 260226_EPIM232 \
@@ -320,12 +320,12 @@ def build_pdf(data, run_stats, org_info, logo_path, run_name, output_path):
         story.append(Image(logo_path, width=4*cm, height=3*cm))
         story.append(Spacer(1, 0.5*cm))
     story.append(Paragraph('EpiTaxMAG', st['DocTitle']))
-    story.append(Paragraph('Reporte de Vigilancia Metagenomica', ParagraphStyle(
+    story.append(Paragraph('Metagenomic Surveillance Report', ParagraphStyle(
         'SubTitle', parent=st['Normal'], fontSize=14, textColor=C_LBLUE, alignment=TA_CENTER, spaceAfter=6)))
     story.append(HRFlowable(width='60%', thickness=2, color=C_ORANGE, spaceAfter=12))
     story.append(Paragraph(f'Run: <b>{run_name}</b>', ParagraphStyle(
         'RunInfo', parent=st['Normal'], fontSize=11, alignment=TA_CENTER, spaceAfter=4)))
-    story.append(Paragraph(f'Fecha: {date_str}', st['DocSub']))
+    story.append(Paragraph(f'Date: {date_str}', st['DocSub']))
     story.append(Paragraph(f'{org_info.get("name","")} | {org_info.get("department","")}', st['DocSub']))
     story.append(Paragraph(f'{org_info.get("address","")}', st['DocSub']))
 
@@ -333,17 +333,17 @@ def build_pdf(data, run_stats, org_info, logo_path, run_name, output_path):
     n_samples = len(surv) if not surv.empty else 0
     n_mags = len(checkm2) if not checkm2.empty else 0
     n_amr = len(integ) if not integ.empty else 0
-    n_crit = len(integ[integ['Risk_level']=='CRITICO']) if not integ.empty else 0
+    n_crit = len(integ[integ['Risk_level']=='CRITICAL']) if not integ.empty else 0
 
     story.append(Spacer(1, 1*cm))
     cover_data = [
-        ['Muestras', str(n_samples)],
+        ['Samples', str(n_samples)],
         ['Total Gb (raw)', f"{surv['raw_gb'].sum():.1f}" if not surv.empty else '-'],
         ['Total Gb (clean)', f"{surv['clean_gb'].sum():.1f}" if not surv.empty else '-'],
         ['% Unclassified', f"{run_stats['pct_unclassified']}%"],
-        ['MAGs recuperados', str(n_mags)],
-        ['Genes AMR', str(n_amr)],
-        ['Riesgo CRITICO', str(n_crit)],
+        ['Recovered MAGs', str(n_mags)],
+        ['AMR genes', str(n_amr)],
+        ['CRITICAL risk', str(n_crit)],
     ]
     cover_table = Table(cover_data, colWidths=[6*cm, 4*cm])
     cover_table.setStyle(TableStyle([
@@ -359,20 +359,20 @@ def build_pdf(data, run_stats, org_info, logo_path, run_name, output_path):
     story.append(cover_table)
     story.append(PageBreak())
 
-    # ── A. ESTADISTICAS CARRERA ────────────────────────────────
-    story.append(Paragraph('A. Estadisticas de la Carrera de Secuenciacion', st['SectionH']))
+    # ── A. RUN STATISTICS ──────────────────────────────────────
+    story.append(Paragraph('A. Sequencing Run Statistics', st['SectionH']))
     story.append(Paragraph(
-        f'Total reads secuenciados: <b>{run_stats["total_reads"]:,}</b>. '
-        f'Reads con barcode: <b>{run_stats["classified_reads"]:,}</b>. '
-        f'Reads sin barcode (unclassified): <b>{run_stats["unclassified_reads"]:,}</b> '
+        f'Total reads sequenced: <b>{run_stats["total_reads"]:,}</b>. '
+        f'Reads with barcode: <b>{run_stats["classified_reads"]:,}</b>. '
+        f'Reads without barcode (unclassified): <b>{run_stats["unclassified_reads"]:,}</b> '
         f'(<b>{run_stats["pct_unclassified"]}%</b>). '
-        f'{"Valor aceptable." if run_stats["pct_unclassified"]<15 else "ALERTA: >=15% de lecturas sin barcode."}'
+        f'{"Acceptable value." if run_stats["pct_unclassified"]<15 else "ALERT: >=15% of reads without barcode."}'
         , st['Body']))
 
-    # ── B. RETENCION ───────────────────────────────────────────
-    story.append(Paragraph('B. Retencion de Lecturas', st['SectionH']))
+    # ── B. RETENTION ───────────────────────────────────────────
+    story.append(Paragraph('B. Read Retention', st['SectionH']))
     if not surv.empty:
-        headers = ['Muestra', 'Raw Reads', 'Raw Gb', 'Clean Reads', 'Clean Gb', '% Ret.']
+        headers = ['Sample', 'Raw Reads', 'Raw Gb', 'Clean Reads', 'Clean Gb', '% Ret.']
         rows_data = []
         for _, r in surv.iterrows():
             if 'unclassified' in str(r['Sample']).lower(): continue
@@ -381,21 +381,21 @@ def build_pdf(data, run_stats, org_info, logo_path, run_name, output_path):
         story.append(make_table(headers, rows_data,
                      col_widths=[3.5*cm, 2.5*cm, 1.8*cm, 2.5*cm, 1.8*cm, 1.5*cm]))
         story.append(Paragraph(
-            f'Retencion media: <b>{surv["pct"].mean():.1f}%</b> (std: {surv["pct"].std():.1f}%). '
-            f'Total Gb clean: <b>{surv["clean_gb"].sum():.2f}</b>.', st['Small']))
+            f'Mean retention: <b>{surv["pct"].mean():.1f}%</b> (std: {surv["pct"].std():.1f}%). '
+            f'Total clean Gb: <b>{surv["clean_gb"].sum():.2f}</b>.', st['Small']))
 
-    # ── C. CATALOGO MAGs ───────────────────────────────────────
+    # ── C. MAG CATALOG ─────────────────────────────────────────
     story.append(PageBreak())
-    story.append(Paragraph('C. Catalogo de MAGs', st['SectionH']))
+    story.append(Paragraph('C. MAG Catalog', st['SectionH']))
     if not checkm2.empty:
         n_hq = len(checkm2[checkm2['Q']=='HQ'])
         n_mq = len(checkm2[checkm2['Q']=='MQ'])
         n_lq = len(checkm2[checkm2['Q']=='LQ'])
         story.append(Paragraph(
-            f'Total: <b>{len(checkm2)} MAGs</b> recuperados. '
+            f'Total: <b>{len(checkm2)} MAGs</b> recovered. '
             f'<font color="#28A745"><b>{n_hq} HQ</b></font>, '
             f'<font color="#E05C2A"><b>{n_mq} MQ</b></font>, '
-            f'<font color="#6C757D"><b>{n_lq} LQ</b></font> (estandares MIMAG).', st['Body']))
+            f'<font color="#6C757D"><b>{n_lq} LQ</b></font> (MIMAG standards).', st['Body']))
 
         df = checkm2.copy()
         if not tax.empty:
@@ -403,49 +403,49 @@ def build_pdf(data, run_stats, org_info, logo_path, run_name, output_path):
         else:
             df['Org'] = ''
 
-        headers = ['Muestra', 'Bin', 'Organismo', 'Comp.%', 'Cont.%', 'Q']
+        headers = ['Sample', 'Bin', 'Organism', 'Comp.%', 'Cont.%', 'Q']
         rows_data = [[r['Sample'], r['Bin'][:25], r.get('Org','')[:30],
                       f"{r['Comp']:.1f}", f"{r['Cont']:.1f}", r['Q']]
                      for _, r in df.iterrows()]
         story.append(make_table(headers, rows_data,
                      col_widths=[2.8*cm, 3*cm, 4*cm, 1.5*cm, 1.5*cm, 1*cm]))
 
-    # ── D. AMR DETALLADO ───────────────────────────────────────
+    # ── D. DETAILED AMR ────────────────────────────────────────
     story.append(PageBreak())
-    story.append(Paragraph('D. Resistencia Antimicrobiana en MAGs', st['SectionH']))
+    story.append(Paragraph('D. Antimicrobial Resistance in MAGs', st['SectionH']))
     if not integ.empty:
         n_plas = len(integ[integ['Location']=='PLASMID'])
         story.append(Paragraph(
-            f'Total: <b>{len(integ)} genes AMR</b> detectados en <b>{integ["MAG"].nunique()} MAGs</b>. '
-            f'<b>{n_plas}</b> en plasmido ({n_plas/len(integ)*100:.0f}% transferibles). '
-            f'<font color="#E74C3C"><b>{n_crit} CRITICOS</b></font>.', st['Body']))
+            f'Total: <b>{len(integ)} AMR genes</b> detected in <b>{integ["MAG"].nunique()} MAGs</b>. '
+            f'<b>{n_plas}</b> on plasmid ({n_plas/len(integ)*100:.0f}% transferable). '
+            f'<font color="#E74C3C"><b>{n_crit} CRITICAL</b></font>.', st['Body']))
 
         if n_crit > 0:
-            story.append(Paragraph('ALERTAS CRITICAS:', st['Alert']))
-            for _, r in integ[integ['Risk_level']=='CRITICO'].iterrows():
+            story.append(Paragraph('CRITICAL ALERTS:', st['Alert']))
+            for _, r in integ[integ['Risk_level']=='CRITICAL'].iterrows():
                 story.append(Paragraph(
-                    f'&bull; <b>{r.get("Gene","")}</b> ({r.get("AMR_class","")}) en '
-                    f'<i>{r.get("Organism","")}</i> — plasmido score {r.get("Plasmid_score",0):.2f} '
+                    f'&bull; <b>{r.get("Gene","")}</b> ({r.get("AMR_class","")}) in '
+                    f'<i>{r.get("Organism","")}</i> — plasmid score {r.get("Plasmid_score",0):.2f} '
                     f'[{r.get("Sample","")}]', st['Body']))
 
-        headers = ['Muestra', 'Organismo', 'Gen', 'Clase', 'Ubic.', 'Id%', 'Cov%', 'Riesgo']
+        headers = ['Sample', 'Organism', 'Gene', 'Class', 'Loc.', 'Id%', 'Cov%', 'Risk']
         rows_data = []
         for _, r in integ.iterrows():
-            loc = 'PLASM' if r.get('Location')=='PLASMID' else 'CROM'
+            loc = 'PLASM' if r.get('Location')=='PLASMID' else 'CHROM'
             rows_data.append([r.get('Sample',''), r.get('Organism','')[:25],
                             r.get('Gene',''), r.get('AMR_class','')[:15], loc,
                             f"{r.get('Identity_pct',0):.0f}", f"{r.get('Coverage_pct',0):.0f}",
                             r.get('Risk_level','')])
         story.append(make_table(headers, rows_data,
                      col_widths=[2.5*cm, 3*cm, 1.8*cm, 2*cm, 1.2*cm, 1*cm, 1*cm, 1.3*cm]))
-        story.append(Paragraph('Ver Excel adjunto para campos completos: accession, closest reference, metodo, HMM.', st['Small']))
+        story.append(Paragraph('See attached Excel for complete fields: accession, closest reference, method, HMM.', st['Small']))
 
-    # ── E. CONCORDANCIA KMA-MAG ────────────────────────────────
+    # ── E. KMA-MAG CONCORDANCE ─────────────────────────────────
     story.append(PageBreak())
-    story.append(Paragraph('E. Concordancia KMA Reads vs MAG Contigs', st['SectionH']))
+    story.append(Paragraph('E. KMA Reads vs MAG Contigs Concordance', st['SectionH']))
     story.append(Paragraph(
-        'Genes AMR detectados en reads (KMA/ResFinder) vs contigs ensamblados (AMRFinderPlus). '
-        'Deteccion en ambos = confianza maxima. Solo en reads = posible reservorio no ensamblado.', st['Body']))
+        'AMR genes detected in reads (KMA/ResFinder) vs assembled contigs (AMRFinderPlus). '
+        'Detection in both = maximum confidence. Reads only = possible unassembled reservoir.', st['Body']))
 
     if not kma.empty or not integ.empty:
         all_samples = set()
@@ -458,31 +458,31 @@ def build_pdf(data, run_stats, org_info, logo_path, run_name, output_path):
             both = kma_genes & mag_genes
             only_reads = kma_genes - mag_genes
             only_contigs = mag_genes - kma_genes
-            for g in sorted(both): conc_rows.append([s, g, 'AMBOS', 'MAXIMA'])
-            for g in sorted(only_reads): conc_rows.append([s, g, 'Solo Reads', 'Moderada'])
-            for g in sorted(only_contigs): conc_rows.append([s, g, 'Solo Contigs', 'Moderada'])
+            for g in sorted(both): conc_rows.append([s, g, 'BOTH', 'MAXIMUM'])
+            for g in sorted(only_reads): conc_rows.append([s, g, 'Reads only', 'Moderate'])
+            for g in sorted(only_contigs): conc_rows.append([s, g, 'Contigs only', 'Moderate'])
         if conc_rows:
-            story.append(make_table(['Muestra', 'Gen', 'Deteccion', 'Confianza'], conc_rows,
+            story.append(make_table(['Sample', 'Gene', 'Detection', 'Confidence'], conc_rows,
                          col_widths=[3*cm, 3.5*cm, 3*cm, 2.5*cm]))
 
-    # ── F. VIRULENCIA ──────────────────────────────────────────
-    story.append(Paragraph('F. Factores de Virulencia (VFDB)', st['SectionH']))
+    # ── F. VIRULENCE ───────────────────────────────────────────
+    story.append(Paragraph('F. Virulence Factors (VFDB)', st['SectionH']))
     if not vfdb.empty:
-        story.append(Paragraph(f'<b>{len(vfdb)} factores de virulencia</b> detectados por ABRicate/VFDB.', st['Body']))
-        headers = ['Muestra', 'Bin', 'Gen', 'Producto', 'Id%', 'Cov%']
+        story.append(Paragraph(f'<b>{len(vfdb)} virulence factors</b> detected by ABRicate/VFDB.', st['Body']))
+        headers = ['Sample', 'Bin', 'Gene', 'Product', 'Id%', 'Cov%']
         rows_data = [[r['Sample'], r['Bin'][:20], r['Gene'], r['Product'][:30],
                       f"{r['Identity']:.0f}", f"{r['Coverage']:.0f}"] for _, r in vfdb.iterrows()]
         story.append(make_table(headers, rows_data,
                      col_widths=[2.5*cm, 2.5*cm, 2*cm, 4*cm, 1.2*cm, 1.2*cm]))
     else:
-        story.append(Paragraph('Sin factores de virulencia detectados por VFDB.', st['Body']))
+        story.append(Paragraph('No virulence factors detected by VFDB.', st['Body']))
 
-    # ── G. PLASMIDOS ───────────────────────────────────────────
+    # ── G. PLASMIDS ────────────────────────────────────────────
     story.append(PageBreak())
-    story.append(Paragraph('G. Plasmidos y Elementos Moviles', st['SectionH']))
+    story.append(Paragraph('G. Plasmids and Mobile Elements', st['SectionH']))
     if not data['plasmid_counts'].empty:
-        story.append(Paragraph('Contigs clasificados como plasmidicos por geNomad:', st['Body']))
-        headers = ['Muestra', 'N Plasmidos detectados']
+        story.append(Paragraph('Contigs classified as plasmidic by geNomad:', st['Body']))
+        headers = ['Sample', 'N Plasmids detected']
         rows_data = [[r['Sample'], str(r['N_plasmids'])]
                      for _, r in data['plasmid_counts'].iterrows()]
         story.append(make_table(headers, rows_data, col_widths=[5*cm, 4*cm]))
@@ -490,24 +490,24 @@ def build_pdf(data, run_stats, org_info, logo_path, run_name, output_path):
         plas_amr = integ[integ['Location']=='PLASMID']
         if not plas_amr.empty:
             story.append(Spacer(1, 0.5*cm))
-            story.append(Paragraph(f'<b>{len(plas_amr)} genes AMR</b> localizados en contigs plasmidicos:', st['Body']))
-            headers = ['Muestra', 'Organismo', 'Gen', 'Clase', 'Plasmid Score', 'Riesgo']
+            story.append(Paragraph(f'<b>{len(plas_amr)} AMR genes</b> located on plasmid contigs:', st['Body']))
+            headers = ['Sample', 'Organism', 'Gene', 'Class', 'Plasmid Score', 'Risk']
             rows_data = [[r.get('Sample',''), r.get('Organism','')[:25], r.get('Gene',''),
                          r.get('AMR_class','')[:15], f"{r.get('Plasmid_score',0):.2f}",
                          r.get('Risk_level','')] for _, r in plas_amr.iterrows()]
             story.append(make_table(headers, rows_data,
                          col_widths=[2.5*cm, 3*cm, 2*cm, 2*cm, 2*cm, 1.5*cm]))
-    story.append(Paragraph('Ver hoja "Plasmidos_MOBsuite" del Excel para tipificacion completa (replicones, movilidad, host range).', st['Small']))
+    story.append(Paragraph('See "Plasmids_MOBsuite" sheet of the Excel for full typing (replicons, mobility, host range).', st['Small']))
 
-    # ── H. DESGLOSE POR MUESTRA ───────────────────────────────
+    # ── H. PER-SAMPLE BREAKDOWN ────────────────────────────────
     story.append(PageBreak())
-    story.append(Paragraph('H. Desglose por Muestra', st['SectionH']))
+    story.append(Paragraph('H. Per-Sample Breakdown', st['SectionH']))
 
     samples = sorted(surv['Sample'].unique()) if not surv.empty else []
     for sample in samples:
         if 'unclassified' in sample.lower(): continue
 
-        story.append(Paragraph(f'Muestra: {sample}', st['SubH']))
+        story.append(Paragraph(f'Sample: {sample}', st['SubH']))
 
         # QC
         s_surv = surv[surv['Sample']==sample]
@@ -516,7 +516,7 @@ def build_pdf(data, run_stats, org_info, logo_path, run_name, output_path):
             story.append(Paragraph(
                 f'Raw: {r["raw_reads"]:,.0f} reads ({r["raw_gb"]:.2f} Gb) | '
                 f'Clean: {r["clean_reads"]:,.0f} reads ({r["clean_gb"]:.2f} Gb) | '
-                f'Retencion: {r["pct"]:.1f}%', st['Body']))
+                f'Retention: {r["pct"]:.1f}%', st['Body']))
 
         # MAGs
         s_mags = checkm2[checkm2['Sample']==sample] if not checkm2.empty else pd.DataFrame()
@@ -526,31 +526,31 @@ def build_pdf(data, run_stats, org_info, logo_path, run_name, output_path):
             story.append(Paragraph(f'MAGs: {len(s_mags)} ({len(s_mags[s_mags["Q"]=="HQ"])} HQ, {len(s_mags[s_mags["Q"]=="MQ"])} MQ)', st['Body']))
             mag_rows = [[r['Bin'][:30], r.get('Org','')[:30], f"{r['Comp']:.0f}%", f"{r['Cont']:.0f}%", r['Q']]
                        for _, r in s_mags.iterrows()]
-            story.append(make_table(['Bin', 'Organismo', 'Comp', 'Cont', 'Q'], mag_rows,
+            story.append(make_table(['Bin', 'Organism', 'Comp', 'Cont', 'Q'], mag_rows,
                          col_widths=[3.5*cm, 4*cm, 1.5*cm, 1.5*cm, 1*cm]))
         else:
-            story.append(Paragraph('Sin MAGs recuperados.', st['Small']))
+            story.append(Paragraph('No MAGs recovered.', st['Small']))
 
         # AMR
         s_amr = integ[integ['Sample']==sample] if not integ.empty else pd.DataFrame()
         if not s_amr.empty:
             n_p = len(s_amr[s_amr['Location']=='PLASMID'])
-            story.append(Paragraph(f'AMR: {len(s_amr)} genes ({n_p} en plasmido)', st['Body']))
+            story.append(Paragraph(f'AMR: {len(s_amr)} genes ({n_p} on plasmid)', st['Body']))
             amr_rows = [[r.get('Organism','')[:25], r.get('Gene',''), r.get('AMR_class','')[:15],
-                        'PLASM' if r.get('Location')=='PLASMID' else 'CROM',
+                        'PLASM' if r.get('Location')=='PLASMID' else 'CHROM',
                         r.get('Risk_level','')] for _, r in s_amr.iterrows()]
-            story.append(make_table(['Organismo', 'Gen', 'Clase', 'Ubic.', 'Riesgo'], amr_rows,
+            story.append(make_table(['Organism', 'Gene', 'Class', 'Loc.', 'Risk'], amr_rows,
                          col_widths=[3.5*cm, 2*cm, 2.5*cm, 1.5*cm, 1.5*cm]))
         else:
-            story.append(Paragraph('Sin genes AMR detectados en MAGs.', st['Small']))
+            story.append(Paragraph('No AMR genes detected in MAGs.', st['Small']))
 
         # Virulence
         s_vf = vfdb[vfdb['Sample']==sample] if not vfdb.empty else pd.DataFrame()
         if not s_vf.empty:
-            story.append(Paragraph(f'Virulencia: {len(s_vf)} factores detectados', st['Body']))
+            story.append(Paragraph(f'Virulence: {len(s_vf)} factors detected', st['Body']))
             vf_rows = [[r['Gene'], r['Product'][:35], f"{r['Identity']:.0f}%"]
                       for _, r in s_vf.iterrows()]
-            story.append(make_table(['Gen', 'Producto', 'Identidad'], vf_rows,
+            story.append(make_table(['Gene', 'Product', 'Identity'], vf_rows,
                          col_widths=[3*cm, 6*cm, 2*cm]))
 
         story.append(Spacer(1, 0.3*cm))
@@ -558,23 +558,23 @@ def build_pdf(data, run_stats, org_info, logo_path, run_name, output_path):
 
     # ── I. SOFTWARE ────────────────────────────────────────────
     story.append(PageBreak())
-    story.append(Paragraph('I. Software y Versiones', st['SectionH']))
+    story.append(Paragraph('I. Software and Versions', st['SectionH']))
     sw = [
         ['NanoPlot','1.46.2','QC reads'], ['FastQC','0.12.1','QC reads'],
         ['FastQ Screen','0.16.0','Screening'], ['Porechop ABI','0.5.1','Trimming'],
-        ['Chopper','0.12.0','Filtrado'], ['Kraken2','2.17.1','Taxonomia k-mers'],
-        ['Bracken','3.1','Abundancias'], ['Kaiju','1.10.1','Taxonomia proteica'],
-        ['Sylph','0.9.0','Perfilado ANI'], ['KMA','1.6.8','AMR reads'],
-        ['MetaFlye','2.9.6','Ensamblaje'], ['Medaka','2.2.1','Polishing'],
-        ['QUAST','5.3.0','QC ensamblaje'], ['MetaBAT2','2.18','Binning'],
-        ['MaxBin2','2.2.7','Binning'], ['SemiBin2','2.2.1','Binning DL'],
-        ['DAS Tool','1.1.7','Refinamiento'], ['CheckM2','1.1.0','QC MAGs'],
-        ['GTDB-Tk','2.7.0','Taxonomia MAGs'], ['AMRFinderPlus','4.2.7','AMR MAGs'],
-        ['geNomad','1.12.0','Plasmidos/virus'], ['ABRicate','1.4.0','VFDB/CARD'],
-        ['MOB-suite','3.1.9','Tipificacion plasmidos'], ['IntegronFinder','2.0rc6','Integrones'],
-        ['Bakta','1.12.0','Anotacion MAGs'], ['MultiQC','1.33','Reporte QC'],
+        ['Chopper','0.12.0','Filtering'], ['Kraken2','2.17.1','k-mer taxonomy'],
+        ['Bracken','3.1','Abundances'], ['Kaiju','1.10.1','Protein taxonomy'],
+        ['Sylph','0.9.0','ANI profiling'], ['KMA','1.6.8','AMR reads'],
+        ['MetaFlye','2.9.6','Assembly'], ['Medaka','2.2.1','Polishing'],
+        ['QUAST','5.3.0','Assembly QC'], ['MetaBAT2','2.18','Binning'],
+        ['MaxBin2','2.2.7','Binning'], ['SemiBin2','2.2.1','DL Binning'],
+        ['DAS Tool','1.1.7','Refinement'], ['CheckM2','1.1.0','MAG QC'],
+        ['GTDB-Tk','2.7.0','MAG taxonomy'], ['AMRFinderPlus','4.2.7','AMR MAGs'],
+        ['geNomad','1.12.0','Plasmids/viruses'], ['ABRicate','1.4.0','VFDB/CARD'],
+        ['MOB-suite','3.1.9','Plasmid typing'], ['IntegronFinder','2.0rc6','Integrons'],
+        ['Bakta','1.12.0','MAG annotation'], ['MultiQC','1.33','QC report'],
     ]
-    story.append(make_table(['Herramienta', 'Version', 'Funcion'], sw,
+    story.append(make_table(['Tool', 'Version', 'Function'], sw,
                  col_widths=[3.5*cm, 2*cm, 6*cm]))
 
     # Build
@@ -586,7 +586,7 @@ def build_pdf(data, run_stats, org_info, logo_path, run_name, output_path):
 # MAIN
 # ═══════════════════════════════════════════════════════════════
 def main():
-    parser = argparse.ArgumentParser(description='Genera PDF EpiTaxMAG')
+    parser = argparse.ArgumentParser(description='Generate EpiTaxMAG PDF')
     parser.add_argument('--results-dir', required=True)
     parser.add_argument('--run-name', required=True)
     parser.add_argument('--input-dir', default=None)
@@ -594,14 +594,14 @@ def main():
     parser.add_argument('--output', required=True)
     args = parser.parse_args()
 
-    print(f'[INFO] Generando PDF para {args.run_name}')
+    print(f'[INFO] Generating PDF for {args.run_name}')
     org_info, logo_path = load_branding(args.branding)
     run_stats = load_run_stats(args.input_dir) if args.input_dir else {
         'total_reads':0, 'classified_reads':0, 'unclassified_reads':0, 'pct_unclassified':0}
     data = load_all_data(args.results_dir)
 
-    print(f'[INFO] Datos: {len(data["survival"])} muestras, {len(data["checkm2"])} MAGs, '
-          f'{len(data["integration"])} AMR, {len(data["vfdb"])} virulencia')
+    print(f'[INFO] Data: {len(data["survival"])} samples, {len(data["checkm2"])} MAGs, '
+          f'{len(data["integration"])} AMR, {len(data["vfdb"])} virulence')
 
     os.makedirs(os.path.dirname(args.output) or '.', exist_ok=True)
     build_pdf(data, run_stats, org_info, logo_path, args.run_name, args.output)

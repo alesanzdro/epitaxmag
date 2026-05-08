@@ -2,37 +2,37 @@
 
 /*
  * ══════════════════════════════════════════════════════════════════
- *  EpiTax — Subworkflow de Perfilado Taxonómico
- *  QC · Trimming · Filtrado · Host Removal · FastQ Screen ·
- *  Taxonomía · AMR screening · Reporte
+ *  EpiTax — Taxonomic Profiling Subworkflow
+ *  QC · Trimming · Filtering · Host Removal · FastQ Screen ·
+ *  Taxonomy · AMR screening · Report
  *  EPIMOL — FISABIO
  * ══════════════════════════════════════════════════════════════════
  *
- *  PIPELINE (14 pasos):
- *   01. QC raw (NanoPlot + FastQC + CHECK_SQCORE)
- *   02. FastQ Screen (sobre reads RAW — diagnóstico de vectores, host, etc.)
- *   03. Porechop ABI (trimming)
- *   04. Chopper (filtrado Q + longitud)
- *   05. HOST_REMOVAL (opcional, --host_genome)
- *   06. QC filtrado (NanoPlot + FastQC + CHECK_SQCORE)
+ *  PIPELINE (14 steps):
+ *   01. Raw QC (NanoPlot + FastQC + CHECK_SQCORE)
+ *   02. FastQ Screen (on RAW reads — diagnose vectors, host, etc.)
+ *   03. Porechop ABI (adapter trimming)
+ *   04. Chopper (Q + length filtering)
+ *   05. HOST_REMOVAL (optional, --host_genome)
+ *   06. Filtered QC (NanoPlot + FastQC + CHECK_SQCORE)
  *   07. Kraken2
  *   08. Bracken
  *   09. Kaiju
  *   10. Sylph
- *   11. KMA AMR screening (ResFinder desde reads)
- *   12. Verificación fenotípica (minimap2 vs type-strains)
+ *   11. KMA AMR screening (ResFinder from reads)
+ *   12. Phenotypic verification (minimap2 vs type-strains)
  *   13. MultiQC
- *   14. Reporte HTML EpiTax (Plotly, incluye screening + fenotípico)
+ *   14. EpiTax HTML report (Plotly, includes screening + phenotypic)
  */
 
 
-// ── Variables derivadas de params ──────────────────────────────────
+// ── Variables derived from params ──────────────────────────────────
 def run_name = params.run_name ?: (params.input ? file(params.input).name : 'unknown')
 def outdir   = params.outdir   ?: "${projectDir}/results/${run_name}"
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 01: QC reads crudos
+// STEP 01: QC of raw reads
 // ══════════════════════════════════════════════════════════════════
 
 process NANOPLOT_RAW {
@@ -92,9 +92,9 @@ process CHECK_SQCORE_RAW {
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 02: FASTQ SCREEN — screening contaminación (sobre reads RAW)
-// Corre sobre rawdata para detectar vectores, adaptadores, host,
-// controles y patógenos ANTES de que Porechop los elimine.
+// STEP 02: FASTQ SCREEN — contamination screening (on RAW reads)
+// Run on raw data to detect vectors, adapters, host, controls and
+// pathogens BEFORE Porechop strips them out.
 // ══════════════════════════════════════════════════════════════════
 
 process FASTQSCREEN {
@@ -110,9 +110,9 @@ process FASTQSCREEN {
 
     script:
     """
-    # FastQ Screen: el _screen.txt se genera antes del HTML.
-    # Si falla la generacion del HTML (template missing en container),
-    # toleramos el error si el .txt existe.
+    # FastQ Screen writes the _screen.txt before the HTML report.
+    # If HTML generation fails (e.g. template missing inside a container),
+    # we tolerate the error as long as the .txt exists.
     fastq_screen --conf ${params.fastqscreen_conf} \\
         --outdir . \\
         --threads ${task.cpus} \\
@@ -120,14 +120,14 @@ process FASTQSCREEN {
         --minimap2 '-x map-ont' \\
         ${fastq} || true
 
-    # Verificar que el output esencial existe
+    # Make sure the essential output is present
     ls *_screen.txt > /dev/null 2>&1 || { echo "ERROR: no _screen.txt generated"; exit 1; }
     """
 }
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 03: PORECHOP_ABI — trimming adaptadores
+// STEP 03: PORECHOP_ABI — adapter trimming
 // ══════════════════════════════════════════════════════════════════
 
 process PORECHOP {
@@ -151,7 +151,7 @@ process PORECHOP {
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 04: CHOPPER — filtrado calidad + longitud
+// STEP 04: CHOPPER — quality + length filtering
 // ══════════════════════════════════════════════════════════════════
 
 process CHOPPER {
@@ -176,8 +176,8 @@ process CHOPPER {
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 05: HOST_REMOVAL — depleción de reads del hospedador
-// Solo se ejecuta si params.host_genome != null
+// STEP 05: HOST_REMOVAL — deplete host reads
+// Only runs when params.host_genome is set
 // ══════════════════════════════════════════════════════════════════
 
 process HOST_REMOVAL {
@@ -211,7 +211,7 @@ process HOST_REMOVAL {
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 06: QC reads filtrados
+// STEP 06: QC of filtered reads
 // ══════════════════════════════════════════════════════════════════
 
 process NANOPLOT_FILTERED {
@@ -274,7 +274,7 @@ process CHECK_SQCORE_FILTERED {
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 07: KRAKEN2 — clasificación k-mers
+// STEP 07: KRAKEN2 — k-mer classification
 // ══════════════════════════════════════════════════════════════════
 
 process KRAKEN2 {
@@ -305,7 +305,7 @@ process KRAKEN2 {
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 08: BRACKEN — estimación abundancias
+// STEP 08: BRACKEN — abundance estimation
 // ══════════════════════════════════════════════════════════════════
 
 process BRACKEN {
@@ -335,7 +335,7 @@ process BRACKEN {
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 09: KAIJU — clasificación proteica
+// STEP 09: KAIJU — protein-based classification
 // ══════════════════════════════════════════════════════════════════
 
 process KAIJU {
@@ -368,7 +368,7 @@ process KAIJU {
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 10: SYLPH — perfilado ANI (GTDB + Fungi + Viral)
+// STEP 10: SYLPH — ANI-based profiling (GTDB + Fungi + Viral)
 // ══════════════════════════════════════════════════════════════════
 
 process SYLPH {
@@ -387,7 +387,7 @@ process SYLPH {
     def ext = params.host_genome ? ".clean.fastq.gz" : ".filtered.fastq.gz"
     """
     sylph profile \\
-        ${params.db_root}/sylph/gtdb-r226-c200-dbv1.syldb ${params.db_root}/sylph/fungi-refseq-2024-07-25-c200-v0.3.syldb ${params.db_root}/sylph/imgvr_c200_v0.3.0.syldb \\
+        ${params.sylph_db} ${params.sylph_db_fungi} ${params.sylph_db_viral} \\
         ${filtered_fastqs} \\
         -t ${task.cpus} \\
         > sylph_profile_all.tsv
@@ -407,9 +407,9 @@ process SYLPH {
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 11: KMA_READS — AMR screening desde reads (ResFinder)
-// Detección rápida de genes de resistencia, virulencia, plásmidos
-// sin necesidad de ensamblaje
+// STEP 11: KMA_READS — AMR screening from reads (ResFinder)
+// Fast detection of resistance / virulence / plasmid genes without
+// needing an assembly.
 // ══════════════════════════════════════════════════════════════════
 
 process KMA_READS {
@@ -426,10 +426,10 @@ process KMA_READS {
 
     script:
     """
-    # Indexar la DB ResFinder combinada en el workdir (3 MB, < 1 seg)
-    kma index -i ${params.db_root}/kma_resfinder/resfinder_db/all.fsa -o resfinder_idx 2>/dev/null
+    # Index the combined ResFinder DB into the workdir (3 MB, <1 s)
+    kma index -i ${params.resfinder_fsa} -o resfinder_idx 2>/dev/null
 
-    # Mapeo de reads contra genes de resistencia
+    # Map reads against resistance genes
     kma \\
         -i ${fastq} \\
         -o ${sample} \\
@@ -440,18 +440,18 @@ process KMA_READS {
         -mem_mode \\
         2>/dev/null || true
 
-    # Asegurar que el fichero .res existe aunque no haya hits
+    # Make sure the .res file exists even when no hits are reported
     touch ${sample}.res
     """
 }
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 12: VERIFICACIÓN FENOTÍPICA — minimap2 vs type-strains
-// Opcional: solo si params.phenotypic_targets está definido.
-// Descarga genomas de referencia (type-strain) de NCBI y mapea
-// los reads filtrados para verificar presencia/ausencia.
-// Reporta breadth of coverage a ≥1x, ≥10x, ≥30x de profundidad.
+// STEP 12: PHENOTYPIC VERIFICATION — minimap2 vs type-strains
+// Optional, runs when params.phenotypic_targets is set.
+// Downloads NCBI type-strain reference genomes and maps the filtered
+// reads to verify organism presence/absence. Reports breadth of
+// coverage at >=1x, >=10x and >=30x depth.
 // ══════════════════════════════════════════════════════════════════
 
 process BUILD_PHENOTYPIC_DB {
@@ -523,7 +523,7 @@ process MINIMAP2_PHENOTYPIC {
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 13: MULTIQC — informe integrado
+// STEP 13: MULTIQC — integrated QC report
 // ══════════════════════════════════════════════════════════════════
 
 process MULTIQC {
@@ -551,7 +551,7 @@ process MULTIQC {
 
 
 // ══════════════════════════════════════════════════════════════════
-// PASO 14: REPORTE FINAL HTML EpiTax (último paso)
+// STEP 14: FINAL EpiTax HTML report (last step)
 // ══════════════════════════════════════════════════════════════════
 
 process FINAL_REPORT {
@@ -597,7 +597,7 @@ process FINAL_REPORT {
 
 
 // ══════════════════════════════════════════════════════════════════
-// WORKFLOW TAX — Perfilado Taxonómico Completo (EpiTax)
+// TAX WORKFLOW — Full taxonomic profiling (EpiTax)
 // ══════════════════════════════════════════════════════════════════
 
 workflow TAX {
@@ -607,23 +607,23 @@ workflow TAX {
 
     main:
 
-    // ── Paso 01: QC raw ────────────────────────────────────────
+    // ── Step 01: Raw QC ────────────────────────────────────────
     NANOPLOT_RAW(ch_raw_fastq)
     FASTQC_RAW(ch_raw_fastq)
     CHECK_SQCORE_RAW(Channel.of(file(params.input)))
 
-    // ── Paso 02: FastQ Screen (sobre reads RAW) ───────────────
-    // Diagnóstico de vectores, host, controles, patógenos
-    // ANTES de que Porechop elimine adaptadores/vectores
+    // ── Step 02: FastQ Screen (on RAW reads) ──────────────────
+    // Diagnose vectors, host contamination, controls and pathogens
+    // BEFORE Porechop strips adapters/vectors.
     FASTQSCREEN(ch_raw_fastq)
 
-    // ── Paso 03: Porechop — trimming adaptadores ───────────────
+    // ── Step 03: Porechop — adapter trimming ──────────────────
     PORECHOP(ch_raw_fastq)
 
-    // ── Paso 04: Chopper — filtrado Q + longitud ───────────────
+    // ── Step 04: Chopper — quality + length filter ────────────
     CHOPPER(PORECHOP.out.trimmed)
 
-    // ── Paso 05: Host removal (opcional) ──────────────────────
+    // ── Step 05: Host removal (optional) ──────────────────────
     if (params.host_genome) {
         HOST_REMOVAL(CHOPPER.out.filtered)
         ch_clean = HOST_REMOVAL.out.clean
@@ -631,7 +631,7 @@ workflow TAX {
         ch_clean = CHOPPER.out.filtered
     }
 
-    // ── Paso 06: QC filtrados (sobre reads de Chopper) ────────
+    // ── Step 06: Filtered-reads QC (Chopper output) ───────────
     NANOPLOT_FILTERED(CHOPPER.out.filtered)
     FASTQC_FILTERED(CHOPPER.out.filtered)
 
@@ -641,23 +641,23 @@ workflow TAX {
 
     CHECK_SQCORE_FILTERED(ch_all_clean)
 
-    // ── Paso 07-08: Kraken2 → Bracken (sobre reads limpios) ──
+    // ── Steps 07-08: Kraken2 → Bracken (on clean reads) ───────
     KRAKEN2(ch_clean)
     BRACKEN(KRAKEN2.out.report)
 
-    // ── Paso 09: Kaiju (sobre reads limpios) ─────────────────
+    // ── Step 09: Kaiju (on clean reads) ───────────────────────
     KAIJU(ch_clean)
 
-    // ── Paso 10: Sylph (sobre reads limpios) ─────────────────
+    // ── Step 10: Sylph (on clean reads) ───────────────────────
     SYLPH(ch_all_clean)
 
-    // ── Paso 11: KMA AMR screening (sobre reads limpios) ─────
+    // ── Step 11: KMA AMR screening (on clean reads) ───────────
     KMA_READS(ch_clean)
 
-    // ── Paso 12: Verificación fenotípica (minimap2 vs type-strains)
-    // Descarga genomas de referencia (NCBI) y mapea reads para
-    // verificar presencia/ausencia de organismos objetivo.
-    // Activado por defecto. Desactivar: --phenotypic_targets false
+    // ── Step 12: Phenotypic verification (minimap2 vs type-strains)
+    // Downloads NCBI reference genomes and maps reads to verify
+    // presence/absence of target organisms.
+    // Enabled by default. Disable with: --phenotypic_targets false
     ch_phenotypic_trigger = Channel.empty()
     if (params.phenotypic_targets && params.phenotypic_targets != 'false') {
         BUILD_PHENOTYPIC_DB(Channel.of(file(params.phenotypic_targets)))
@@ -672,7 +672,7 @@ workflow TAX {
         ch_phenotypic = Channel.value([])
     }
 
-    // ── Paso 13: MultiQC — esperar a que TODO termine ─────────
+    // ── Step 13: MultiQC — wait for everything to finish ──────
     Channel.empty()
         .mix(
             FASTQC_RAW.out.fastqc_files.collect(),
@@ -690,7 +690,7 @@ workflow TAX {
 
     MULTIQC(ch_multiqc_trigger)
 
-    // ── Paso 14: Reporte final HTML EpiTax ─────────────────
+    // ── Step 14: Final EpiTax HTML report ─────────────────────
     ch_taxonomy = Channel.empty()
         .mix(
             KRAKEN2.out.report.map { sample, report -> report },

@@ -1,4 +1,4 @@
-# Entorno ligero para generación de reporte HTML interactivo con Plotly
+# Lightweight environment for the interactive Plotly HTML and Excel reports.
 # EpiTaxMAG — FISABIO EPIMOL
 name: nf-metatax-html
 channels:
@@ -9,3 +9,4 @@ dependencies:
   - pandas
   - numpy
   - plotly>=5.0
+  - openpyxl>=3.1     # required by scripts/generate_excel_report.py

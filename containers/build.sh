@@ -1,13 +1,13 @@
 #!/bin/bash
-# Build de la imagen EpiTaxMAG Tools
+# Build script for the EpiTaxMAG Tools image.
 #
-# OPCION 1: Build con Singularity (directo, sin Docker)
+# OPTION 1: Build with Singularity (direct, no Docker required)
 #   bash containers/build.sh singularity
 #
-# OPCION 2: Build con Docker + convertir a Singularity
+# OPTION 2: Build with Docker and convert to Singularity
 #   bash containers/build.sh docker
 #
-# La imagen resultante se guarda en containers/epitaxmag-tools-1.0.0.sif
+# The resulting image is written to containers/epitaxmag-tools-1.0.0.sif
 
 set -euo pipefail
 
@@ -38,15 +38,15 @@ case "$MODE" in
         rm -f "${SCRIPT_DIR}/${IMAGE_NAME}-${VERSION}.tar"
         ;;
     *)
-        echo "Uso: bash containers/build.sh [singularity|docker]"
+        echo "Usage: bash containers/build.sh [singularity|docker]"
         exit 1
         ;;
 esac
 
 echo ""
-echo "Imagen creada: ${SIF_FILE}"
+echo "Image created: ${SIF_FILE}"
 echo ""
-echo "Verificar:"
+echo "Verify:"
 echo "  singularity exec ${SIF_FILE} python3 -c 'import pandas, plotly; print(\"OK\")'"
 echo "  singularity exec ${SIF_FILE} minimap2 --version"
 echo "  singularity exec ${SIF_FILE} kma -v"
