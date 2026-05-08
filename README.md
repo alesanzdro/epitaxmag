@@ -16,7 +16,7 @@ EpiTaxMAG processes Oxford Nanopore long reads from raw FASTQ to interactive epi
 
 - **EpiTax** (TAX phase): QC, adapter trimming, quality filtering, multi-tool taxonomic profiling (Kraken2, Bracken, Kaiju, Sylph), read-level AMR screening (KMA/ResFinder), and interactive HTML report.
 
-- **EpiTaxMAG** (MAG phase): Metagenomic assembly (MetaFlye + Medaka), multi-algorithm binning (MetaBAT2 + MaxBin2 + SemiBin2 + DAS Tool), quality assessment (CheckM2), MAG taxonomy (GTDB-Tk or Sourmash), AMR and virulence detection (AMRFinderPlus, ABRicate/VFDB), plasmid characterization (geNomad, MOB-suite), integron detection (IntegronFinder), functional annotation (Bakta), and comprehensive HTML/Excel reports with AMR-pathogen-plasmid risk assessment.
+- **EpiTaxMAG** (MAG phase): Metagenomic assembly (MetaFlye + Medaka), multi-algorithm binning (MetaBAT2 + MaxBin2 + SemiBin2 + DAS Tool), quality assessment (CheckM2), MAG taxonomy (Skani by default; Sourmash or GTDB-Tk via `--taxonomy_tool`), AMR and virulence detection (AMRFinderPlus, ABRicate/VFDB), plasmid characterization (geNomad, MOB-suite), integron detection (IntegronFinder), functional annotation (Bakta), and comprehensive HTML/Excel reports with AMR-pathogen-plasmid risk assessment.
 
 ---
 
@@ -30,9 +30,10 @@ This is a step-by-step recipe for a fresh server. Replace `jane` and
 - **Nextflow** ≥ 23.04 ([install](https://www.nextflow.io/docs/latest/install.html))
 - **Conda** (Miniconda or Miniforge) — or Singularity/Apptainer
 - **Disk**: ~170 GB for TAX only, ~360 GB for TAX + MAG (auto-downloaded on first run)
-- **RAM**:
-  - ≥ 200 GB → full pipeline including GTDB-Tk
-  - 58–64 GB → run with `--skip_gtdbtk` (uses Sourmash instead, ~5 GB RAM)
+- **RAM** (depends on `--taxonomy_tool`):
+  - **Skani** (default): ≥ 24 GB enough — fast ANI vs GTDB r226, ~36 GB DB.
+  - **Sourmash** (`--taxonomy_tool sourmash`): ≥ 8 GB — k-mer sketches, ~3.7 GB DB.
+  - **GTDB-Tk** (`--taxonomy_tool gtdbtk`): ≥ 200 GB — gold-standard, ~60 GB DB.
 
 ### 2. Set up your folder layout
 
@@ -99,28 +100,43 @@ Files containing `unclassified` are skipped automatically (Nanopore default).
 
 ### 6. Run the pipeline
 
-**TAX only** (taxonomic profiling, ~3–4 h for ~7 samples):
+**Full run (TAX + MAG)** — the canonical command. This runs the entire
+pipeline (QC, taxonomic profiling, AMR-in-reads, assembly, binning,
+MAG quality, MAG taxonomy, AMR-on-contigs/plasmids, virulence, integrons,
+annotation, integrated HTML+Excel report) end-to-end:
 
 ```bash
 nextflow run main.nf \
-    --input  /home/jane/BIOLAB/DATA/RUN001_TEST \
-    --outdir /home/jane/BIOLAB/RESULTS/RUN001_TEST \
-    -profile gru
+    --input    /home/jane/BIOLAB/DATA/RUN001_TEST \
+    --outdir   /home/jane/BIOLAB/RESULTS/RUN001_TEST \
+    --run_name RUN001_TEST \
+    --db_root  /home/jane/BIOLAB/DATABASES \
+    --run_assembly true \
+    -profile   medium
 ```
 
-**TAX + MAG** (full pipeline including assembly + binning, ~12–24 h):
+Adjust the four paths and the run name; everything else stays. With
+6 samples and the `medium` profile expect 8–12 h end-to-end (most of
+that is MetaFlye + Kaiju + Kraken2). When `--run_name` is set, Nextflow
+writes per-task working files under `<outdir>/work/`, so the whole run
+is self-contained.
+
+**TAX only** (skip assembly + binning, ~3–4 h for ~7 samples):
 
 ```bash
 nextflow run main.nf \
-    --input  /home/jane/BIOLAB/DATA/RUN001_TEST \
-    --outdir /home/jane/BIOLAB/RESULTS/RUN001_TEST \
-    --run_assembly \
-    -profile gru
+    --input    /home/jane/BIOLAB/DATA/RUN001_TEST \
+    --outdir   /home/jane/BIOLAB/RESULTS/RUN001_TEST \
+    --run_name RUN001_TEST \
+    --db_root  /home/jane/BIOLAB/DATABASES \
+    -profile   medium
 ```
 
-Pick the profile that matches your machine: `gru` (48 cores / 240 GB RAM),
-`censalud` (24 cores / 58 GB RAM, NVMe), `pc` (20 cores / 52 GB RAM).
-Add `--skip_gtdbtk` on machines with less than ~64 GB RAM.
+Pick the profile that matches your machine: `low` (≥16 cores / ≥32 GB),
+`medium` (≥24 cores / ≥64 GB, recommended default) or `high` (≥64 cores /
+≥128 GB, only profile compatible with `--taxonomy_tool gtdbtk`).
+The default `--taxonomy_tool skani` fits `low` and `medium` comfortably;
+switch to `--taxonomy_tool sourmash` for very RAM-tight setups.
 
 The first run downloads ~170–360 GB of databases into your `DATABASES/`
 folder. Every subsequent run reuses that cache.
@@ -132,11 +148,21 @@ where it left off:
 
 ```bash
 nextflow run main.nf \
-    --input  /home/jane/BIOLAB/DATA/RUN001_TEST \
-    --outdir /home/jane/BIOLAB/RESULTS/RUN001_TEST \
-    --run_assembly \
-    -profile gru \
+    --input    /home/jane/BIOLAB/DATA/RUN001_TEST \
+    --outdir   /home/jane/BIOLAB/RESULTS/RUN001_TEST \
+    --run_name RUN001_TEST \
+    --db_root  /home/jane/BIOLAB/DATABASES \
+    --run_assembly true \
+    -profile   medium \
     -resume
+```
+
+If `nextflow log` shows several sessions and `-resume` does not skip
+anything, force the right session UUID:
+
+```bash
+nextflow log -q                               # list run sessions
+nextflow run main.nf [...] -resume <UUID>     # resume that one
 ```
 
 ### 8. Practical tips
@@ -148,15 +174,17 @@ nextflow run main.nf \
 - **Run from GitHub** without cloning (Nextflow pulls automatically):
   ```bash
   nextflow run asanzcarb/epitaxmag \
-      --input  /home/jane/BIOLAB/DATA/RUN001_TEST \
-      --outdir /home/jane/BIOLAB/RESULTS/RUN001_TEST \
-      --db_root /home/jane/BIOLAB/DATABASES \
-      -profile gru
+      --input    /home/jane/BIOLAB/DATA/RUN001_TEST \
+      --outdir   /home/jane/BIOLAB/RESULTS/RUN001_TEST \
+      --run_name RUN001_TEST \
+      --db_root  /home/jane/BIOLAB/DATABASES \
+      --run_assembly true \
+      -profile   medium
   ```
 - **Singularity instead of conda**: combine profiles and point to your SIF in
   `conf/local.config`:
   ```bash
-  nextflow run main.nf --input ... -profile gru,singularity
+  nextflow run main.nf --input ... -profile medium,singularity
   ```
 - **Show every option**: `nextflow run main.nf --help`.
 
@@ -166,9 +194,12 @@ nextflow run main.nf \
 
 | Profile | CPUs | RAM | Kraken2 mode | Notes |
 |---------|------|-----|-------------|-------|
-| `gru` | 48 | 240 GB | DB in RAM | Full pipeline incl. GTDB-Tk |
-| `censalud` | 24 | 58 GB | memory-mapping (NVMe) | Use `--skip_gtdbtk` |
-| `pc` | 20 | 52 GB | memory-mapping | Use `--skip_gtdbtk` |
+| `low` | ≥16 | ≥32 GB | memory-mapping | Skani (default) or Sourmash |
+| `medium` *(default)* | ≥24 | ≥64 GB | memory-mapping (NVMe) | Skani (default) or Sourmash |
+| `high` | ≥64 | ≥128 GB | DB in RAM | Any `--taxonomy_tool`, including `gtdbtk` |
+| `pc` | — | — | — | DEPRECATED alias for `low` |
+| `censalud` | — | — | — | DEPRECATED alias for `medium` |
+| `gru` | — | — | — | DEPRECATED alias for `high` |
 | `singularity` | - | - | - | Combine: `-profile gru,singularity` |
 
 ---
@@ -204,7 +235,7 @@ nextflow run main.nf \
 | 20 | SemiBin2 | Binning (deep learning, long reads) |
 | 21 | DAS Tool | Bin refinement (consensus of 3 binners) |
 | 22 | CheckM2 | MAG quality (completeness, contamination) |
-| 23 | GTDB-Tk / Sourmash | MAG taxonomy (GTDB r232 / RS226) |
+| 23 | Skani / Sourmash / GTDB-Tk | MAG taxonomy (selectable via `--taxonomy_tool`, default Skani vs GTDB r226) |
 | 24 | AMRFinderPlus | AMR + virulence + stress in MAGs |
 | 25 | geNomad | Plasmid and virus detection |
 | 26 | Python | AMR-pathogen-plasmid integration |
@@ -227,8 +258,9 @@ Downloaded automatically on first run (~360 GB total):
 | Sylph GTDB+Fungi+Viral | ~17 GB | Sylph | TAX |
 | ResFinder | ~3 MB | KMA | TAX |
 | FastQ Screen panel | ~7 GB | FastQ Screen | TAX ([Zenodo](https://zenodo.org/records/19860716)) |
-| GTDB-Tk r232 | ~100 GB | GTDB-Tk | MAG |
+| Skani GTDB r226 (v0.3 sketch) | ~36 GB | Skani | MAG (default) |
 | Sourmash GTDB RS226 | ~3.7 GB | Sourmash | MAG (alternative) |
+| GTDB-Tk r232 | ~100 GB | GTDB-Tk | MAG (only with `--taxonomy_tool gtdbtk`) |
 | CheckM2 | ~3 GB | CheckM2 | MAG |
 | geNomad | ~1.4 GB | geNomad | MAG |
 | Bakta | ~84 GB (full) / ~4 GB (light) | Bakta | MAG |
@@ -299,7 +331,8 @@ epitaxmag/
 | `--run_tax` | `true` | Run TAX phase |
 | `--run_assembly` | `false` | Run MAG phase |
 | `--db_root` | `databases/` | Root directory for all databases |
-| `--skip_gtdbtk` | `false` | Use Sourmash instead of GTDB-Tk (saves RAM) |
+| `--taxonomy_tool` | `skani` | MAG taxonomy classifier: `skani` \| `sourmash` \| `gtdbtk` |
+| `--skip_gtdbtk` | `false` | DEPRECATED — alias for `--taxonomy_tool sourmash` |
 | `--skip_db_setup` | `false` | Skip automatic database download |
 | `--host_genome` | `null` | Host genome FASTA for decontamination |
 | `--min_quality` | `10` | Minimum Chopper quality score |

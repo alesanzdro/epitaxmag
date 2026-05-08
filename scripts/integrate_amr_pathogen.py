@@ -53,21 +53,48 @@ def parse_taxonomy(path):
 
 
 def parse_taxonomy_levels(classification):
-    """Extract taxonomic levels from a GTDB string.
-    Input: d__Bacteria;p__Proteobacteria;c__...;g__Acinetobacter;s__A. baumannii
-    Output: dict with domain, phylum, class, order, family, genus, species
+    """Extract genus/species from either a GTDB-Tk string or a Skani/Sourmash
+    free-text best hit.
+
+    GTDB-Tk: 'd__Bacteria;p__...;c__...;o__...;f__...;g__Acinetobacter;s__A. baumannii'
+    Skani/Sourmash: '<accession> Acinetobacter johnsonii CIP 64.6 contig...'
     """
     levels = {}
-    prefixes = {
-        'd__': 'domain', 'p__': 'phylum', 'c__': 'class',
-        'o__': 'order', 'f__': 'family', 'g__': 'genus', 's__': 'species'
-    }
-    for part in str(classification).split(';'):
-        part = part.strip()
-        for prefix, level in prefixes.items():
-            if part.startswith(prefix):
-                val = part[len(prefix):]
-                levels[level] = val if val else 'Unclassified'
+    cls = str(classification).strip()
+    if not cls:
+        return levels
+
+    # GTDB-Tk path: detect by the rank prefixes
+    if any(tag in cls for tag in ('d__', 'p__', 'g__', 's__')):
+        prefixes = {
+            'd__': 'domain', 'p__': 'phylum', 'c__': 'class',
+            'o__': 'order', 'f__': 'family', 'g__': 'genus', 's__': 'species'
+        }
+        for part in cls.split(';'):
+            part = part.strip()
+            for prefix, level in prefixes.items():
+                if part.startswith(prefix):
+                    val = part[len(prefix):]
+                    levels[level] = val if val else 'Unclassified'
+        return levels
+
+    # Skani / Sourmash: '<accession> <Genus species ... description>'
+    parts = cls.split(None, 1)
+    rest = parts[1] if len(parts) > 1 else ''
+    stop_tokens = (' strain ', ' isolate ', ' sp. ', ' subsp. ', ' DSM ',
+                   ' ATCC ', ' CIP ', ' NCTC ', ' contig', ' scaffold',
+                   ' chromosome', ' complete', ' whole genome', ' MAG:', ',')
+    cut = len(rest)
+    for tok in stop_tokens:
+        i = rest.find(tok)
+        if i >= 0 and i < cut:
+            cut = i
+    binomial = rest[:cut].strip()
+    tokens = binomial.split()
+    if tokens:
+        levels['genus'] = tokens[0]
+        if len(tokens) > 1:
+            levels['species'] = ' '.join(tokens[1:])
     return levels
 
 
@@ -160,22 +187,79 @@ def parse_plasmids(path):
     return plasmids
 
 
-def classify_risk(amr_class, element_type, location):
-    """Classify risk level of an AMR gene."""
-    high_risk_classes = {
-        'BETA-LACTAM', 'CARBAPENEM', 'CEPHALOSPORIN',
-        'COLISTIN', 'GLYCOPEPTIDE', 'QUINOLONE'
-    }
-    amr_upper = amr_class.upper() if amr_class else ''
+# ─── Transparent risk model ────────────────────────────────────
+# Stable, ordered rule list. evaluate_risk() walks them top-to-bottom
+# and returns the first match plus the rule's human-readable reason.
+# The HTML report renders this list verbatim in section "Risk model"
+# so users can audit *why* a gene was flagged.
 
-    if location == 'PLASMID' and amr_upper in high_risk_classes:
-        return 'CRITICAL'
-    elif location == 'PLASMID':
-        return 'HIGH'
-    elif amr_upper in high_risk_classes:
-        return 'MEDIUM'
-    else:
-        return 'LOW'
+RISK_HIGH_CLASSES = {
+    'BETA-LACTAM', 'CARBAPENEM', 'CEPHALOSPORIN',
+    'COLISTIN', 'GLYCOPEPTIDE', 'QUINOLONE',
+}
+
+RISK_RULES = [
+    # (rule_id,    description shown verbatim in the report,
+    #  predicate(class_upper, element_type, location, identity, coverage, mag_quality, plasmid_score),
+    #  level)
+    ('R1',
+     'High-risk antibiotic class (carbapenem / β-lactam / colistin / '
+     'glycopeptide / quinolone / cephalosporin) on a confirmed plasmid '
+     '(geNomad score ≥ 0.7) → highest concern: horizontally transferable '
+     'last-resort resistance.',
+     lambda cls, et, loc, idn, cov, q, ps: (
+         loc == 'PLASMID' and cls in RISK_HIGH_CLASSES and (ps or 0) >= 0.7),
+     'CRITICAL'),
+
+    ('R2',
+     'High-risk antibiotic class on a chromosome of a high-quality (HQ) MAG '
+     'with high sequence support (identity ≥ 95% and coverage ≥ 90%) → '
+     'confirmed clinically relevant resistance carrier.',
+     lambda cls, et, loc, idn, cov, q, ps: (
+         loc == 'CHROMOSOME' and cls in RISK_HIGH_CLASSES
+         and q == 'HQ' and (idn or 0) >= 95 and (cov or 0) >= 90),
+     'HIGH'),
+
+    ('R3',
+     'Any AMR gene on a plasmid (regardless of class) → mobilisable '
+     'resistance, monitor.',
+     lambda cls, et, loc, idn, cov, q, ps: loc == 'PLASMID',
+     'HIGH'),
+
+    ('R4',
+     'High-risk class on a chromosome but evidence is weaker '
+     '(MQ/LQ MAG or low identity/coverage) → flagged but needs '
+     'confirmation.',
+     lambda cls, et, loc, idn, cov, q, ps: (
+         cls in RISK_HIGH_CLASSES),
+     'MEDIUM'),
+
+    ('R5',
+     'Default: any other AMR gene call.',
+     lambda cls, et, loc, idn, cov, q, ps: True,
+     'LOW'),
+]
+
+
+def evaluate_risk(amr_class, element_type, location,
+                  identity=None, coverage=None,
+                  mag_quality=None, plasmid_score=None):
+    """Apply the ordered RISK_RULES and return (level, rule_id, reason)."""
+    cls = (amr_class or '').upper()
+    for rule_id, reason, pred, level in RISK_RULES:
+        try:
+            if pred(cls, element_type, location, identity, coverage,
+                    mag_quality, plasmid_score):
+                return level, rule_id, reason
+        except Exception:
+            continue
+    return 'LOW', 'R5', RISK_RULES[-1][1]
+
+
+def classify_risk(amr_class, element_type, location):
+    """Backwards-compatible wrapper used by older callers."""
+    level, _, _ = evaluate_risk(amr_class, element_type, location)
+    return level
 
 
 def quality_label(comp, cont):
@@ -215,8 +299,11 @@ def integrate(sample, taxonomy, checkm2, amr_hits, plasmids):
             location = 'CHROMOSOME'
             plas_score = 0.0
 
-        # Risk
-        risk = classify_risk(hit['amr_class'], hit['element_type'], location)
+        # Transparent risk evaluation (level + rule_id + reason)
+        risk, risk_rule, risk_reason = evaluate_risk(
+            hit['amr_class'], hit['element_type'], location,
+            identity=hit['pct_identity'], coverage=hit['pct_coverage'],
+            mag_quality=qc_label, plasmid_score=plas_score)
 
         rows.append({
             'Sample': sample,
@@ -238,6 +325,8 @@ def integrate(sample, taxonomy, checkm2, amr_hits, plasmids):
             'Location': location,
             'Plasmid_score': round(plas_score, 3),
             'Risk_level': risk,
+            'Risk_rule': risk_rule,
+            'Risk_reason': risk_reason,
         })
 
     return pd.DataFrame(rows)

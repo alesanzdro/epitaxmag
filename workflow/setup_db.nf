@@ -34,8 +34,16 @@
 process DOWNLOAD_KRAKEN2 {
     storeDir "${params.db_root}/k2_pluspf_20251015"
 
+    // Declare every file Kraken2/Bracken expect so storeDir keeps them all.
+    // Without `database*.kmer_distrib`, Bracken would fail at runtime.
     output:
-    path("hash.k2d"), emit: done
+    path("hash.k2d"),                         emit: hash
+    path("opts.k2d"),                         emit: opts
+    path("taxo.k2d"),                         emit: taxo
+    path("inspect.txt"),                      emit: inspect, optional: true
+    path("ktaxonomy.tsv"),                    emit: tax,     optional: true
+    path("seqid2taxid.map"),                  emit: seqid,   optional: true
+    path("database*.kmer_distrib"),           emit: bracken, optional: true
 
     script:
     """
@@ -51,8 +59,13 @@ process DOWNLOAD_KRAKEN2 {
 process DOWNLOAD_KAIJU {
     storeDir "${params.db_root}/kaiju"
 
+    // The 2024-08-14 tarball ships the .fmi alongside the NCBI taxonomy
+    // dump. Declare all three so storeDir keeps them — without nodes.dmp
+    // and names.dmp Kaiju and kaiju2table fail at runtime.
     output:
-    path("kaiju_db_refseq_ref.fmi"), emit: done
+    path("kaiju_db_refseq_ref.fmi"), emit: fmi
+    path("nodes.dmp"),               emit: nodes
+    path("names.dmp"),               emit: names
 
     script:
     """
@@ -62,9 +75,6 @@ process DOWNLOAD_KAIJU {
         https://kaiju-idx.s3.eu-central-1.amazonaws.com/2024/kaiju_db_refseq_ref_2024-08-14.tgz
     tar xzf kaiju_db_refseq_ref_2024-08-14.tgz
     rm -f kaiju_db_refseq_ref_2024-08-14.tgz
-    test -f kaiju_db_refseq_ref.fmi
-    test -f nodes.dmp
-    test -f names.dmp
     """
 }
 
@@ -296,6 +306,28 @@ process DOWNLOAD_SOURMASH_GTDB {
     """
 }
 
+process DOWNLOAD_SKANI {
+    // skani v0.3 ships a single-file sketch DB for GTDB r226. Bluenote-1577
+    // hosts the pre-built archive on the CMU compbio server. The folder
+    // extracted by tar (`skani_gtdb_r226-v0.3/`) is what `skani search -d`
+    // expects as its input.
+    storeDir "${params.db_root}/skani"
+
+    output:
+    path("skani_gtdb_r226-v0.3"), emit: db
+
+    script:
+    """
+    set -euo pipefail
+    echo "[setup_db] Downloading skani GTDB r226 sketch DB (~38 GB compressed)..."
+    wget -c --tries=5 --timeout=300 \\
+        http://faust.compbio.cs.cmu.edu/skani-files/skani_gtdb_r226-v0.3.tar.gz
+    tar xzf skani_gtdb_r226-v0.3.tar.gz
+    rm -f skani_gtdb_r226-v0.3.tar.gz
+    test -d skani_gtdb_r226-v0.3
+    """
+}
+
 
 // ──────────────────────────────────────────────────────────────────────
 // Setup workflow — invoked from main.nf unless --skip_db_setup.
@@ -314,9 +346,9 @@ workflow SETUP_DB {
     SETUP_FASTQSCREEN()
 
     // Collect TAX-phase done signals
-    ch_tax_done = DOWNLOAD_KRAKEN2.out.done
+    ch_tax_done = DOWNLOAD_KRAKEN2.out.hash
         .mix(
-            DOWNLOAD_KAIJU.out.done,
+            DOWNLOAD_KAIJU.out.fmi,
             DOWNLOAD_SYLPH.out.gtdb,
             DOWNLOAD_RESFINDER.out.done,
             SETUP_FASTQSCREEN.out.conf
@@ -329,12 +361,22 @@ workflow SETUP_DB {
         SETUP_AMRFINDERPLUS()
         SETUP_BAKTA()
 
-        if (!params.skip_gtdbtk) {
-            DOWNLOAD_GTDBTK()
-            ch_mag_tax = DOWNLOAD_GTDBTK.out.done
-        } else {
-            DOWNLOAD_SOURMASH_GTDB()
-            ch_mag_tax = DOWNLOAD_SOURMASH_GTDB.out.db
+        // Download only the DB for the selected MAG taxonomy tool.
+        switch (params.taxonomy_tool) {
+            case 'skani':
+                DOWNLOAD_SKANI()
+                ch_mag_tax = DOWNLOAD_SKANI.out.db
+                break
+            case 'sourmash':
+                DOWNLOAD_SOURMASH_GTDB()
+                ch_mag_tax = DOWNLOAD_SOURMASH_GTDB.out.db
+                break
+            case 'gtdbtk':
+                DOWNLOAD_GTDBTK()
+                ch_mag_tax = DOWNLOAD_GTDBTK.out.done
+                break
+            default:
+                error "Unknown taxonomy_tool: '${params.taxonomy_tool}'. Use 'skani', 'sourmash' or 'gtdbtk'."
         }
 
         ch_mag_done = DOWNLOAD_CHECKM2.out.done
