@@ -198,26 +198,51 @@ RISK_HIGH_CLASSES = {
     'COLISTIN', 'GLYCOPEPTIDE', 'QUINOLONE',
 }
 
+# Subset of RISK_HIGH_CLASSES that flips a call to CRITICAL even on a
+# chromosome, provided the AMR call has strong sequence support. These
+# are last-resort / clinically-flagged classes that we want surfaced
+# regardless of mobilisation evidence (we cannot wait for a plasmid
+# confirmation when a carbapenemase is on a confirmed genome).
+RISK_LAST_RESORT_CLASSES = {
+    'CARBAPENEM', 'COLISTIN', 'GLYCOPEPTIDE',
+}
+
+# Strong-evidence thresholds for the relaxed R1 trigger.
+RISK_STRONG_IDENTITY = 95.0
+RISK_STRONG_COVERAGE = 90.0
+
 RISK_RULES = [
-    # (rule_id,    description shown verbatim in the report,
-    #  predicate(class_upper, element_type, location, identity, coverage, mag_quality, plasmid_score),
-    #  level)
+    # (rule_id, description, predicate, level)
     ('R1',
-     'High-risk antibiotic class (carbapenem / β-lactam / colistin / '
-     'glycopeptide / quinolone / cephalosporin) on a confirmed plasmid '
+     'High-risk antibiotic class on a confirmed plasmid '
      '(geNomad score ≥ 0.7) → highest concern: horizontally transferable '
      'last-resort resistance.',
      lambda cls, et, loc, idn, cov, q, ps: (
          loc == 'PLASMID' and cls in RISK_HIGH_CLASSES and (ps or 0) >= 0.7),
      'CRITICAL'),
 
+    ('R1b',
+     'Last-resort antibiotic class (carbapenem / colistin / glycopeptide) '
+     'on any MAG with strong sequence support '
+     f'(identity ≥ {RISK_STRONG_IDENTITY:.0f}% and '
+     f'coverage ≥ {RISK_STRONG_COVERAGE:.0f}%) → critical even without '
+     'plasmid confirmation, since these are clinical last-line drugs.',
+     lambda cls, et, loc, idn, cov, q, ps: (
+         cls in RISK_LAST_RESORT_CLASSES
+         and (idn or 0) >= RISK_STRONG_IDENTITY
+         and (cov or 0) >= RISK_STRONG_COVERAGE),
+     'CRITICAL'),
+
     ('R2',
      'High-risk antibiotic class on a chromosome of a high-quality (HQ) MAG '
-     'with high sequence support (identity ≥ 95% and coverage ≥ 90%) → '
-     'confirmed clinically relevant resistance carrier.',
+     f'with strong sequence support (identity ≥ {RISK_STRONG_IDENTITY:.0f}% '
+     f'and coverage ≥ {RISK_STRONG_COVERAGE:.0f}%) → confirmed clinically '
+     'relevant resistance carrier.',
      lambda cls, et, loc, idn, cov, q, ps: (
          loc == 'CHROMOSOME' and cls in RISK_HIGH_CLASSES
-         and q == 'HQ' and (idn or 0) >= 95 and (cov or 0) >= 90),
+         and q == 'HQ'
+         and (idn or 0) >= RISK_STRONG_IDENTITY
+         and (cov or 0) >= RISK_STRONG_COVERAGE),
      'HIGH'),
 
     ('R3',

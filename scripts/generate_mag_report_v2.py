@@ -1160,6 +1160,30 @@ def load_amr_mags(results_dir):
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
 
+def _parse_kma_template(template):
+    """ResFinder/KMA template names follow `<gene>_<allele_id>_<accession>`,
+    where the gene name itself may contain underscores, parentheses,
+    primes and dashes (e.g. `aac(6')-Ix_1_AF031332`,
+    `tet(39)_2_CP044518`). The allele id is always numeric and the
+    accession is always the last segment, so we parse from the right
+    instead of the left — `gene.split('_')[0]` was losing structure.
+    """
+    if template is None:
+        return '', '', ''
+    s = str(template).strip()
+    if not s:
+        return '', '', ''
+    parts = s.split('_')
+    if len(parts) >= 3 and parts[-2].isdigit():
+        accession = parts[-1]
+        allele = parts[-2]
+        gene = '_'.join(parts[:-2])
+        return gene, allele, accession
+    # Fallback: keep the leading token as gene root if the suffix does
+    # not look like `<id>_<accession>`.
+    return parts[0], '', ''
+
+
 def load_kma(results_dir):
     rows = []
     for f in sorted(glob.glob(f'{results_dir}/11_amr_kma/*.res')):
@@ -1172,12 +1196,22 @@ def load_kma(results_dir):
                 template = str(r.iloc[0]).strip()
                 if not template or template.startswith('#'):
                     continue
-                gene_root = template.split('_')[0] if '_' in template else template
+                gene, allele, accession = _parse_kma_template(template)
+                # `Gene_root` (gene-family level, before the dash) lets us
+                # group different alleles of the same family together; the
+                # full gene name keeps the allele-specific designation
+                # (e.g. blaOXA-491 vs blaOXA-212).
+                gene_root = gene.split('-')[0] if gene else ''
                 rows.append({
-                    'Sample': sample, 'Template': template, 'Gene_root': gene_root,
-                    'KMA_Identity': float(r.get('Template_Identity', 0)),
-                    'KMA_Coverage': float(r.get('Template_Coverage', 0)),
-                    'KMA_Depth': float(r.get('Depth', 0)),
+                    'Sample'      : sample,
+                    'Template'    : template,
+                    'Gene'        : gene,
+                    'Gene_root'   : gene_root,
+                    'Allele'      : allele,
+                    'Accession'   : accession,
+                    'KMA_Identity': float(r.get('Template_Identity', 0) or 0),
+                    'KMA_Coverage': float(r.get('Template_Coverage', 0) or 0),
+                    'KMA_Depth'   : float(r.get('Depth', 0) or 0),
                 })
         except Exception:
             pass
@@ -1509,58 +1543,99 @@ def compute_survival(qc_raw, qc_filt):
     return df.sort_values('Sample').reset_index(drop=True)
 
 
+def _gene_family_root(name):
+    """Strip allele suffix to get the family root.
+    Example: blaOXA-491 → blaOXA · aac(6')-Ix → aac(6')-I."""
+    if not name:
+        return ''
+    s = str(name).strip()
+    return s.split('-')[0] if '-' in s else s
+
+
 def compute_concordance(kma_df, amr_df):
-    if kma_df.empty and amr_df.empty:
+    """Per-sample gene-family concordance between reads (KMA/ResFinder)
+    and assembled contigs (AMRFinderPlus on MAGs).
+
+    Matching is at the FAMILY level (everything up to the first dash)
+    because exact allele matching across the two pipelines is unreliable
+    — KMA detects ResFinder alleles, AMRFinderPlus detects NCBI alleles,
+    and a real blaOXA in the sample lights up several blaOXA-* templates
+    in KMA and one canonical blaOXA-NNNN call in AMRFinderPlus. We keep
+    the specific alleles inside `KMA_alleles` / `MAG_alleles` lists so
+    the user can see what each pipeline actually called."""
+    if (kma_df is None or kma_df.empty) and (amr_df is None or amr_df.empty):
         return pd.DataFrame()
     rows = []
     samples = set()
-    if not kma_df.empty:
+    if kma_df is not None and not kma_df.empty:
         samples.update(kma_df['Sample'].unique())
-    if not amr_df.empty:
+    if amr_df is not None and not amr_df.empty:
         samples.update(amr_df['Sample'].unique())
 
     for sample in sorted(samples):
-        kma_genes = set()
-        kma_info = {}
-        if not kma_df.empty:
+        kma_by_root = {}
+        if kma_df is not None and not kma_df.empty:
             sk = kma_df[kma_df['Sample'] == sample]
             for _, r in sk.iterrows():
-                root = r['Gene_root']
-                kma_genes.add(root)
-                if root not in kma_info or r['KMA_Depth'] > kma_info[root]['KMA_Depth']:
-                    kma_info[root] = {
-                        'KMA_Depth': r['KMA_Depth'],
-                        'KMA_Identity': r['KMA_Identity'],
-                        'KMA_Coverage': r['KMA_Coverage'],
-                    }
+                # KMA already has Gene_root populated (post-fix); keep
+                # the full allele name + depth so we can list them.
+                root = r.get('Gene_root') or _gene_family_root(r.get('Gene', ''))
+                full = r.get('Gene', r.get('Template', root)) or root
+                kma_by_root.setdefault(root, []).append({
+                    'allele'  : str(full),
+                    'depth'   : float(r.get('KMA_Depth', 0) or 0),
+                    'identity': float(r.get('KMA_Identity', 0) or 0),
+                    'coverage': float(r.get('KMA_Coverage', 0) or 0),
+                })
 
-        mag_genes = set()
-        mag_info = {}
-        if not amr_df.empty:
+        mag_by_root = {}
+        if amr_df is not None and not amr_df.empty:
             sa = amr_df[amr_df['Sample'] == sample]
             for _, r in sa.iterrows():
-                gene = r['Gene']
-                mag_genes.add(gene)
-                if gene not in mag_info:
-                    mag_info[gene] = {
-                        'MAG_Identity': r['Identity'],
-                        'MAG_Coverage': r['Coverage'],
-                        'Bin': r['Bin'],
-                        'Class': r['Class'],
-                    }
+                gene = str(r.get('Gene', ''))
+                root = _gene_family_root(gene)
+                # Some AMRFinderPlus calls give a family name in Gene
+                # (e.g. just "bla"); the Closest_ref name carries the
+                # specific allele (e.g. "OXA-1036"). Prefer it when
+                # available.
+                closest = str(r.get('Closest_ref', '') or '')
+                m = re.search(r'\bOXA-\d+\b|\bKPC-\d+\b|\bNDM-\d+\b|'
+                              r'\bVIM-\d+\b|\bIMP-\d+\b|\bGES-\d+\b|'
+                              r'\bCTX-M-\d+\b|\bSHV-\d+\b|\bTEM-\d+\b|'
+                              r'\b[A-Za-z]+\(\d+\)-[A-Za-z0-9]+\b',
+                              closest)
+                display_allele = m.group(0) if m else (gene or '?')
+                mag_by_root.setdefault(root, []).append({
+                    'allele'  : display_allele,
+                    'gene'    : gene,
+                    'bin'     : str(r.get('Bin', '') or r.get('MAG', '')),
+                    'identity': float(r.get('Identity', r.get('Identity_pct', 0)) or 0),
+                    'coverage': float(r.get('Coverage', r.get('Coverage_pct', 0)) or 0),
+                    'amr_class': str(r.get('Class', '') or r.get('AMR_class', '')),
+                })
 
-        all_genes = kma_genes | mag_genes
-        for gene in sorted(all_genes):
-            in_kma = gene in kma_genes
-            in_mag = gene in mag_genes
-            source = 'BOTH' if in_kma and in_mag else (
+        all_roots = set(kma_by_root) | set(mag_by_root)
+        for root in sorted(all_roots):
+            kma_hits = kma_by_root.get(root, [])
+            mag_hits = mag_by_root.get(root, [])
+            in_kma = bool(kma_hits)
+            in_mag = bool(mag_hits)
+            source = 'BOTH' if (in_kma and in_mag) else (
                 'READS' if in_kma else 'CONTIGS')
-            row = {'Sample': sample, 'Gene': gene, 'Source': source}
-            if in_kma:
-                row.update(kma_info.get(gene, {}))
-            if in_mag:
-                row.update(mag_info.get(gene, {}))
-            rows.append(row)
+            best_kma_d = max((h['depth'] for h in kma_hits), default=0)
+            best_kma_i = max((h['identity'] for h in kma_hits), default=0)
+            best_mag_i = max((h['identity'] for h in mag_hits), default=0)
+            rows.append({
+                'Sample'      : sample,
+                'Gene'        : root,
+                'Source'      : source,
+                'KMA_Depth'   : best_kma_d,
+                'KMA_Identity': best_kma_i,
+                'MAG_Identity': best_mag_i,
+                'Bin'         : (mag_hits[0]['bin'] if mag_hits else ''),
+                'KMA_alleles' : kma_hits,
+                'MAG_alleles' : mag_hits,
+            })
 
     return pd.DataFrame(rows) if rows else pd.DataFrame()
 
@@ -2658,9 +2733,11 @@ def html_amr_detail(integ_df, amr_mags_df):
             f'{_esc(risk_rule)}</small>'
             if risk_rule else RISK_BADGE.get(r.get('Risk_level', ''), ''))
 
+        mag_name = str(r.get('MAG', r.get('Bin', '')))
         rows += (
             f'<tr>'
-            f'<td class="sample" data-sample="{s_name}">{s_name}</td>'
+            f'<td class="sample" data-sample="{s_name}"><strong>{s_name}</strong></td>'
+            f'<td>{_esc(mag_name)}</td>'
             f'<td><em>{_esc(r.get("Organism", ""))}</em></td>'
             f'<td><strong>{_esc(gene_sym)}</strong></td>'
             f'<td class="desc-cell">{_esc(description)}</td>'
@@ -2675,7 +2752,8 @@ def html_amr_detail(integ_df, amr_mags_df):
 
     return (
         '<table class="data-table sortable filterable"><thead><tr>'
-        '<th>Sample</th><th>Organism</th><th>Gene</th><th>Description</th>'
+        '<th>Sample</th><th>MAG / Bin</th><th>Organism</th>'
+        '<th>Gene</th><th>Description</th>'
         '<th>AMR Class</th><th>Location</th>'
         '<th>% Identity</th><th>% Coverage</th><th>Method</th>'
         '<th>Confidence</th><th>Risk (rule)</th><th>Links</th>'
@@ -2706,20 +2784,313 @@ def _render_kma_rows(df):
         cov_cls = 'good' if cov >= 90 else ('warn' if cov >= 60 else 'bad')
         depth_cls = ('good' if depth >= 30 else
                      ('warn' if depth >= KMA_DEPTH_TRUSTED else 'bad'))
-        gene = str(r['Gene_root'])
+        gene_full = str(r.get('Gene') or r.get('Gene_root') or '')
+        gene_root = str(r.get('Gene_root') or gene_full)
+        accession = str(r.get('Accession') or '')
+        allele = str(r.get('Allele') or '')
         gene_link = (
-            f'<a href="{_card_search_url(gene)}" '
-            f'target="_blank" rel="noopener" title="CARD ARO search">'
-            f'<strong>{_esc(gene)}</strong></a>')
+            f'<a href="{_card_search_url(gene_root)}" '
+            f'target="_blank" rel="noopener" '
+            f'title="CARD ARO search · {_esc(gene_root)}">'
+            f'<strong>{_esc(gene_full)}</strong></a>')
+        if accession:
+            acc_link = (
+                f'<a href="https://www.ncbi.nlm.nih.gov/nuccore/{_esc(accession)}" '
+                f'target="_blank" rel="noopener" '
+                f'title="NCBI Nucleotide record for the ResFinder reference">'
+                f'<code>{_esc(accession)}</code></a>')
+        else:
+            acc_link = '-'
         rows += (
             f'<tr><td class="sample" data-sample="{_esc(str(r["Sample"]))}">'
             f'{_esc(str(r["Sample"]))}</td>'
             f'<td>{gene_link}</td>'
-            f'<td><code>{_esc(str(r["Template"]))}</code></td>'
+            f'<td>{_esc(allele) or "-"}</td>'
+            f'<td>{acc_link}</td>'
             f'<td class="{ident_cls}">{ident:.2f}%</td>'
             f'<td class="{cov_cls}">{cov:.2f}%</td>'
             f'<td class="{depth_cls}">{depth:.1f}x</td></tr>\n')
     return rows
+
+
+def chart_phenotypic_heatmap(pheno_df):
+    """Sample × target-species heatmap of whole-genome verification.
+
+    Colour metric: breadth ≥10× (fraction of reference covered at 10×
+    or more) — the trustworthy signal among the three breadth columns.
+    Rows = samples, columns = panel species (ordered by total breadth
+    descending). Hover shows mean depth and the three breadth tiers."""
+    if pheno_df is None or pheno_df.empty:
+        return None
+    df = pheno_df.copy()
+    df['Breadth_10x'] = pd.to_numeric(df.get('Breadth_10x', 0), errors='coerce').fillna(0)
+    df['Breadth_1x']  = pd.to_numeric(df.get('Breadth_1x',  0), errors='coerce').fillna(0)
+    df['Breadth_30x'] = pd.to_numeric(df.get('Breadth_30x', 0), errors='coerce').fillna(0)
+    df['Mean_depth']  = pd.to_numeric(df.get('Mean_depth',  0), errors='coerce').fillna(0)
+    df['Mapped']      = pd.to_numeric(df.get('Mapped',      0), errors='coerce').fillna(0)
+
+    pivot = df.pivot_table(index='Sample', columns='Species',
+                           values='Breadth_10x', aggfunc='max', fill_value=0)
+    if pivot.empty:
+        return None
+
+    # Order columns by total breadth across samples (descending)
+    col_order = pivot.sum(axis=0).sort_values(ascending=False).index.tolist()
+    pivot = pivot[col_order]
+
+    # Aux pivots for hover
+    aux = {}
+    for col, name in [('Breadth_1x', 'b1'), ('Breadth_30x', 'b30'),
+                      ('Mean_depth', 'd'), ('Mapped', 'm')]:
+        aux[name] = (df.pivot_table(index='Sample', columns='Species',
+                                    values=col, aggfunc='max', fill_value=0)
+                     .reindex(index=pivot.index, columns=pivot.columns,
+                              fill_value=0))
+
+    hover = []
+    for sample in pivot.index:
+        row = []
+        for sp in pivot.columns:
+            b10 = pivot.loc[sample, sp]
+            b1  = aux['b1'].loc[sample, sp]
+            b30 = aux['b30'].loc[sample, sp]
+            d   = aux['d'].loc[sample, sp]
+            m   = aux['m'].loc[sample, sp]
+            row.append(
+                f'{sample}<br><b><i>{sp}</i></b><br>'
+                f'mean depth {d:.2f}× · {int(m):,} reads mapped<br>'
+                f'breadth ≥1× {b1:.2f}% · '
+                f'<b>≥10× {b10:.2f}%</b> · ≥30× {b30:.2f}%')
+        hover.append(row)
+
+    fig = go.Figure(data=go.Heatmap(
+        z=pivot.values, x=pivot.columns.tolist(), y=pivot.index.tolist(),
+        colorscale=[
+            [0.0,  '#FFFFFF'],
+            [0.01, '#F0F4F7'],
+            [0.05, '#A6D96A'],
+            [0.30, '#1A9850'],
+            [0.60, '#006837'],
+            [1.0,  '#00441B'],
+        ],
+        zmin=0, zmax=100,
+        text=hover, hovertemplate='%{text}<extra></extra>',
+        colorbar=dict(title=dict(text='Breadth ≥10× (%)', side='right'),
+                      thickness=12, len=0.8,
+                      tickvals=[0, 5, 10, 30, 50, 100])))
+    fig.update_layout(
+        height=max(260, len(pivot) * 28 + 140),
+        title=dict(text=('Whole-genome verification (minimap2) · samples × '
+                         'panel species · colour = breadth ≥10×'),
+                   font_color=BLUE, font_size=14),
+        margin=dict(l=180, r=80, t=70, b=140),
+        xaxis=dict(tickangle=-45, tickfont_size=9),
+        yaxis=dict(tickfont_size=10),
+        font=dict(family='Arial, sans-serif'),
+    )
+    return fig
+
+
+def chart_amr_contigs_sample_heatmap(integ_df, amr_mags_df):
+    """Sample × gene heatmap of contig-level AMR (AMRFinderPlus on MAGs).
+
+    Colour metric: composite confidence score (0–100) — the same one
+    used in the AMR detail table (identity + coverage + method + KMA
+    concordance + MAG quality). Unlike raw identity it does not saturate
+    above 95% on Nanopore polished assemblies, so the colour scale stays
+    informative across the post-filter range.
+
+    Each cell takes the max confidence across MAGs / contigs in the
+    same sample, so each sample appears once even when a gene is in
+    multiple bins of the same sample. The bin-level detail is in the
+    AMR detail table below."""
+    if integ_df is None or integ_df.empty:
+        return None
+    df = integ_df.copy()
+    df['Identity_pct'] = pd.to_numeric(df.get('Identity_pct', 0), errors='coerce').fillna(0)
+    df['Coverage_pct'] = pd.to_numeric(df.get('Coverage_pct', 0), errors='coerce').fillna(0)
+    df['Plasmid_score'] = pd.to_numeric(df.get('Plasmid_score', 0), errors='coerce').fillna(0)
+
+    # Recompute the composite confidence score row-wise (the same one
+    # rendered in the AMR detail table). Keep the calculation here so
+    # the heatmap and the table never drift.
+    df['Confidence'] = df.apply(lambda r: confidence_score(
+        r.get('Identity_pct', 0),
+        r.get('Coverage_pct', 0),
+        r.get('Method', ''),
+        False,  # KMA concordance enrichment happens elsewhere
+        r.get('MAG_quality', ''),
+        r.get('Plasmid_score', 0)), axis=1)
+
+    df['Gene'] = df['Gene'].fillna('').astype(str)
+    pivot = (df.groupby(['Sample', 'Gene'])['Confidence']
+             .max().unstack(fill_value=0))
+    if pivot.empty:
+        return None
+
+    # Sort genes by descending number of samples with a hit.
+    n_carriers = (pivot > 0).sum(axis=0)
+    gene_order = list(n_carriers.sort_values(ascending=False).index)
+    pivot = pivot[gene_order]
+
+    # Auxiliary pivots for the hover
+    ident_pivot = (df.groupby(['Sample', 'Gene'])['Identity_pct']
+                   .max().unstack(fill_value=0)
+                   .reindex(index=pivot.index, columns=pivot.columns, fill_value=0))
+    cov_pivot = (df.groupby(['Sample', 'Gene'])['Coverage_pct']
+                 .max().unstack(fill_value=0)
+                 .reindex(index=pivot.index, columns=pivot.columns, fill_value=0))
+    bins_lookup = (df.groupby(['Sample', 'Gene'])['MAG']
+                   .agg(lambda x: ', '.join(sorted(set(x.astype(str)))))
+                   .to_dict())
+    class_lookup = (df.groupby('Gene')['AMR_class']
+                    .agg(lambda x: x.value_counts().index[0]
+                         if len(x.value_counts()) else '')
+                    .to_dict())
+    loc_lookup = (df.groupby(['Sample', 'Gene'])['Location']
+                  .agg(lambda x: ', '.join(sorted(set(x.astype(str)))))
+                  .to_dict())
+
+    hover = []
+    for sample in pivot.index:
+        row = []
+        for gene in pivot.columns:
+            score = pivot.loc[sample, gene]
+            ident = ident_pivot.loc[sample, gene]
+            cov = cov_pivot.loc[sample, gene]
+            bins = bins_lookup.get((sample, gene), '')
+            cls = class_lookup.get(gene, '')
+            loc = loc_lookup.get((sample, gene), '')
+            if score == 0:
+                row.append(f'{sample}<br>{gene} ({cls})<br>not detected')
+            else:
+                row.append(
+                    f'{sample}<br><b>{gene}</b> ({cls})<br>'
+                    f'<b>confidence {score:.0f}/100</b><br>'
+                    f'identity {ident:.1f}% · coverage {cov:.1f}%<br>'
+                    f'location {loc or "-"}<br>'
+                    f'MAGs: {bins}')
+        hover.append(row)
+
+    fig = go.Figure(data=go.Heatmap(
+        z=pivot.values, x=pivot.columns.tolist(), y=pivot.index.tolist(),
+        colorscale=[
+            [0.0,  '#FFFFFF'],
+            [0.01, '#FFF7BC'],
+            [0.40, '#FEC44F'],
+            [0.70, '#FE9929'],
+            [1.0,  '#993404'],
+        ],
+        zmin=0, zmax=100,
+        text=hover, hovertemplate='%{text}<extra></extra>',
+        colorbar=dict(title=dict(text='Confidence', side='right'),
+                      thickness=12, len=0.8,
+                      tickvals=[0, 30, 50, 70, 90, 100])))
+    fig.update_layout(
+        height=max(280, len(pivot) * 26 + 160),
+        title=dict(text=('AMR contigs (AMRFinderPlus) · samples × gene · '
+                         'colour = composite confidence (0–100)'),
+                   font_color=BLUE, font_size=14),
+        margin=dict(l=180, r=80, t=70, b=120),
+        xaxis=dict(tickangle=-45, tickfont_size=9),
+        yaxis=dict(tickfont_size=10),
+        font=dict(family='Arial, sans-serif'),
+    )
+    return fig
+
+
+def chart_kma_sample_heatmap(kma_df, min_depth=KMA_DEPTH_TRUSTED):
+    """Sample × gene heatmap of read-level AMR (KMA / ResFinder).
+
+    Colour metric: % Template_Identity. Only KMA hits with depth
+    ≥ `min_depth` are shown — at lower depths the alignment is
+    artefact-prone on Nanopore and would mislead the colour scale.
+
+    Each cell takes the best identity across alleles of the same
+    gene-family root in a given sample, so the heatmap stays compact
+    even when 5 blaOXA-* alleles fire at once in one sample. The
+    per-allele detail lives in the table below."""
+    if kma_df is None or kma_df.empty:
+        return None
+    df = kma_df.copy()
+    df['KMA_Depth'] = pd.to_numeric(df['KMA_Depth'], errors='coerce').fillna(0)
+    df['KMA_Identity'] = pd.to_numeric(df['KMA_Identity'], errors='coerce').fillna(0)
+    df['KMA_Coverage'] = pd.to_numeric(df['KMA_Coverage'], errors='coerce').fillna(0)
+    df = df[df['KMA_Depth'] >= min_depth]
+    if df.empty:
+        return None
+
+    df['Gene_label'] = df['Gene'].fillna('').replace('', np.nan)
+    df['Gene_label'] = df['Gene_label'].fillna(df.get('Gene_root', ''))
+
+    pivot = (df.groupby(['Sample', 'Gene_label'])['KMA_Identity']
+             .max().unstack(fill_value=0))
+    if pivot.empty:
+        return None
+
+    cov_pivot = (df.groupby(['Sample', 'Gene_label'])['KMA_Coverage']
+                 .max().unstack(fill_value=0)
+                 .reindex(index=pivot.index, columns=pivot.columns,
+                          fill_value=0))
+    depth_pivot = (df.groupby(['Sample', 'Gene_label'])['KMA_Depth']
+                   .max().unstack(fill_value=0)
+                   .reindex(index=pivot.index, columns=pivot.columns,
+                            fill_value=0))
+    # Allele list (sorted) per (sample, gene) for the tooltip.
+    alleles_lookup = (df.groupby(['Sample', 'Gene_label'])['Template']
+                      .agg(lambda x: ', '.join(sorted(set(x)))).to_dict())
+
+    # Sort genes by descending number of samples with any hit, then by name
+    n_carriers = (pivot > 0).sum(axis=0)
+    gene_order = list(n_carriers.sort_values(ascending=False).index)
+    pivot = pivot[gene_order]
+    cov_pivot = cov_pivot[gene_order]
+    depth_pivot = depth_pivot[gene_order]
+
+    hover = []
+    for sample in pivot.index:
+        row = []
+        for gene in pivot.columns:
+            ident = pivot.loc[sample, gene]
+            cov = cov_pivot.loc[sample, gene]
+            depth = depth_pivot.loc[sample, gene]
+            templates = alleles_lookup.get((sample, gene), '')
+            if ident == 0:
+                row.append(f'{sample}<br>{gene}<br>not detected at ≥{min_depth:.0f}× depth')
+            else:
+                row.append(
+                    f'{sample}<br><b>{gene}</b><br>'
+                    f'best identity {ident:.1f}% · coverage {cov:.1f}%<br>'
+                    f'best depth {depth:.1f}×<br>'
+                    f'alleles: {templates}')
+        hover.append(row)
+
+    fig = go.Figure(data=go.Heatmap(
+        z=pivot.values, x=pivot.columns.tolist(), y=pivot.index.tolist(),
+        colorscale=[
+            [0.0,  '#FFFFFF'],
+            [0.01, '#E8F1F8'],
+            [0.50, '#9ECAE1'],
+            [0.85, '#2C5F8A'],
+            [1.0,  '#0B2A45'],
+        ],
+        zmin=70, zmax=100,
+        text=hover, hovertemplate='%{text}<extra></extra>',
+        colorbar=dict(title=dict(text='Best identity %', side='right'),
+                      thickness=12, len=0.8,
+                      tickvals=[70, 80, 90, 95, 100])))
+    fig.update_layout(
+        height=max(280, len(pivot) * 26 + 160),
+        title=dict(text=('AMR reads (KMA / ResFinder) · samples × gene · '
+                         f'depth ≥ {min_depth:.0f}× · colour = '
+                         'best % identity'),
+                   font_color=BLUE, font_size=14),
+        margin=dict(l=180, r=80, t=70, b=120),
+        xaxis=dict(tickangle=-45, tickfont_size=9),
+        yaxis=dict(tickfont_size=10),
+        font=dict(family='Arial, sans-serif'),
+    )
+    return fig
 
 
 def html_kma_reads_table(kma_df):
@@ -2745,7 +3116,8 @@ def html_kma_reads_table(kma_df):
         return (
             f'<h4 style="margin-top:1em">{caption} ({len(sub)} rows)</h4>'
             '<table class="data-table sortable filterable"><thead><tr>'
-            '<th>Sample</th><th>Gene</th><th>Template (ResFinder)</th>'
+            '<th>Sample</th><th>Gene</th><th>Allele</th>'
+            '<th>Accession (NCBI Nucleotide)</th>'
             '<th>Identity</th><th>Coverage</th><th>Depth</th>'
             f'</tr></thead><tbody>{_render_kma_rows(sub)}</tbody></table>')
 
@@ -2968,6 +3340,67 @@ def html_fastqscreen_detail(fqs_detail_df, target_organisms):
         'Cross-mapping concentrated within a phylogenetically tight subset '
         'of the panel (e.g. all Acinetobacter rows lit) is a positive '
         'signal, not a problem.</p>')
+
+
+def html_bracken_sylph_top10(bracken_df, sylph_df, top_n=10):
+    """Sample × top-N genus, Bracken% and Sylph% side by side. No
+    verdicts, no synthetic categories — just a flat comparison so the
+    user can see what each classifier reported.
+
+    The genus list per sample is the union of Bracken's top-N and
+    Sylph's top-N; genera are sorted by Bracken% descending (Sylph fills
+    a 0 where it did not detect)."""
+    b = bracken_df if bracken_df is not None else pd.DataFrame()
+    s = sylph_df if sylph_df is not None else pd.DataFrame()
+    if b.empty and s.empty:
+        return ('<p class="no-data">No Bracken or Sylph genus tables '
+                'found for this run.</p>')
+    samples = sorted(set(
+        list(b.get('Sample', pd.Series(dtype=str)).unique()) +
+        list(s.get('Sample', pd.Series(dtype=str)).unique())))
+
+    rows = ''
+    bracken_all, sylph_all = b, s
+    for sample in samples:
+        bs = (bracken_all[bracken_all['Sample'] == sample]
+              if not bracken_all.empty else pd.DataFrame())
+        ss = (sylph_all[sylph_all['Sample'] == sample]
+              if not sylph_all.empty else pd.DataFrame())
+        b_top = bs.nlargest(top_n, 'Pct') if not bs.empty else pd.DataFrame()
+        s_top = ss.nlargest(top_n, 'Pct') if not ss.empty else pd.DataFrame()
+        b_lookup = (b_top.set_index('Genus')['Pct'].to_dict()
+                    if not b_top.empty else {})
+        s_lookup = (s_top.set_index('Genus')['Pct'].to_dict()
+                    if not s_top.empty else {})
+        genera = sorted(
+            set(b_lookup) | set(s_lookup),
+            key=lambda g: -b_lookup.get(g, 0))
+
+        for genus in genera:
+            bp = b_lookup.get(genus, 0)
+            sp = s_lookup.get(genus, 0)
+            bp_cell = (f'{bp:.3f}%' if bp else '<span class="note">—</span>')
+            sp_cell = (f'{sp:.3f}%' if sp else '<span class="note">—</span>')
+            rows += (
+                f'<tr><td class="sample" data-sample="{_esc(sample)}">'
+                f'<strong>{_esc(sample)}</strong></td>'
+                f'<td><em>{_esc(genus)}</em></td>'
+                f'<td>{bp_cell}</td>'
+                f'<td>{sp_cell}</td></tr>')
+
+    return (
+        '<table class="data-table sortable filterable"><thead><tr>'
+        '<th>Sample</th><th>Genus</th>'
+        '<th>Bracken %</th><th>Sylph %</th>'
+        f'</tr></thead><tbody>{rows}</tbody></table>'
+        f'<p class="note">Top-{top_n} genera per sample on each side, '
+        'union shown so disagreements are visible. No verdict — read the '
+        'two columns directly and decide. Bracken values from '
+        '<code>08_tax_bracken/*.bracken.G.txt</code> '
+        '(<code>fraction_total_reads</code>), Sylph values from the '
+        '<code>Taxonomic_abundance</code> column of '
+        '<code>10_tax_sylph/sylph_profile_all.tsv</code> (genus parsed '
+        'best-effort from the reference Contig_name).</p>')
 
 
 def html_sylph_summary(comparison_df):
@@ -3302,41 +3735,75 @@ def html_amr_on_plasmids(amr_plas_df):
             '<code>amr_genes</code> column shown above.</p>')
 
 
+def _format_kma_alleles(kma_alleles):
+    """One-cell summary of the KMA reads side: each allele as a chip
+    sorted by descending depth."""
+    if not kma_alleles:
+        return '<span class="note">—</span>'
+    out = []
+    for a in sorted(kma_alleles, key=lambda h: -h.get('depth', 0)):
+        out.append(
+            f'<span class="amr-chip">'
+            f'<strong>{_esc(a["allele"])}</strong> '
+            f'<small>{a["depth"]:.1f}× · {a["identity"]:.1f}%</small></span>')
+    return ' '.join(out)
+
+
+def _format_mag_alleles(mag_alleles):
+    """One-cell summary of the MAG contigs side: each allele + the bin
+    it came from."""
+    if not mag_alleles:
+        return '<span class="note">—</span>'
+    out = []
+    for a in sorted(mag_alleles, key=lambda h: -h.get('identity', 0)):
+        out.append(
+            f'<span class="amr-chip">'
+            f'<strong>{_esc(a["allele"])}</strong> '
+            f'<small>{a["identity"]:.1f}% · {_esc(a["bin"])}</small></span>')
+    return ' '.join(out)
+
+
 def html_concordance_table(conc_df):
     if conc_df.empty:
         return '<p class="no-data">No KMA-MAG concordance data.</p>'
     rows = ''
     for _, r in conc_df.iterrows():
         badge = CONCORDANCE_BADGE.get(r.get('Source', ''), '')
-        kma_d = (f"{r.get('KMA_Depth', 0):.1f}x"
-                 if pd.notna(r.get('KMA_Depth')) and r.get('KMA_Depth', 0) > 0
-                 else '-')
-        kma_i = (f"{r.get('KMA_Identity', 0):.1f}%"
-                 if pd.notna(r.get('KMA_Identity')) and r.get('KMA_Identity', 0) > 0
-                 else '-')
-        mag_i = (f"{r.get('MAG_Identity', 0):.1f}%"
-                 if pd.notna(r.get('MAG_Identity')) and r.get('MAG_Identity', 0) > 0
-                 else '-')
-        mag_b = (str(r.get('Bin', ''))
-                 if pd.notna(r.get('Bin')) else '-')
         s_name = str(r.get('Sample', ''))
+        kma_alleles = r.get('KMA_alleles') or []
+        mag_alleles = r.get('MAG_alleles') or []
+        gene_link = (
+            f'<a href="{_card_search_url(r["Gene"])}" '
+            f'target="_blank" rel="noopener" title="CARD ARO search">'
+            f'<strong>{_esc(r["Gene"])}</strong></a>')
         rows += (
             f'<tr>'
-            f'<td class="sample" data-sample="{s_name}">{s_name}</td>'
-            f'<td><strong>{_esc(r["Gene"])}</strong></td>'
+            f'<td class="sample" data-sample="{s_name}"><strong>{s_name}</strong></td>'
+            f'<td>{gene_link}</td>'
             f'<td>{badge}</td>'
-            f'<td>{kma_d}</td><td>{kma_i}</td>'
-            f'<td>{mag_i}</td></tr>\n')
+            f'<td class="desc-cell">{_format_kma_alleles(kma_alleles)}</td>'
+            f'<td class="desc-cell">{_format_mag_alleles(mag_alleles)}</td>'
+            f'</tr>\n')
 
     return (
         '<table class="data-table sortable filterable"><thead><tr>'
-        '<th>Sample</th><th>Gene</th>'
-        '<th>Detection</th><th>KMA Depth</th><th>KMA Identity</th>'
-        '<th>MAG Identity</th>'
+        '<th>Sample</th><th>Gene family</th>'
+        '<th>Detection</th>'
+        '<th>KMA alleles (depth · identity)</th>'
+        '<th>MAG alleles (identity · bin)</th>'
         '</tr></thead>'
         f'<tbody>{rows}</tbody></table>'
-        '<p class="note">Reads+Contigs = maximum confidence. Reads only = possible '
-        'unassembled reservoir. Contigs only = insufficient read depth for KMA.</p>')
+        '<p class="note">Matching is at the <strong>gene-family</strong> '
+        'level (everything up to the first dash) — KMA detects ResFinder '
+        'alleles while AMRFinderPlus uses NCBI alleles, and a real '
+        'β-lactamase in the sample typically lights up several '
+        '<code>blaOXA-*</code> templates in reads and one canonical '
+        '<code>blaOXA-NNNN</code> call in MAGs. The two new columns list '
+        'exactly which alleles each pipeline reported, so the user can '
+        'judge concordance without forcing an artificial allele-to-allele '
+        'mapping. <strong>Reads + Contigs</strong> = maximum confidence; '
+        '<strong>Reads only</strong> = possible unassembled reservoir; '
+        '<strong>Contigs only</strong> = insufficient read depth for KMA.</p>')
 
 
 def html_vfdb_table(vfdb_df):
@@ -4580,7 +5047,6 @@ def build_toc():
             ('sec-mags',         'MAG catalogue (CheckM2 + Bakta + AMR count)'),
             ('sec-taxonomy',     'Per-sample taxonomic composition'),
             ('sec-amr',          'AMR in MAGs (AMRFinderPlus)'),
-            ('sec-heatmap',      'AMR heatmap (organism × class)'),
             ('sec-vfdb',         'Virulence factors (VFDB)'),
             ('sec-integrons',    'Integrons (IntegronFinder)'),
         ]),
@@ -4658,6 +5124,27 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
                   if not integ.empty else 0)
     n_vf = len(vfdb_df) if not vfdb_df.empty else 0
 
+    # "Clinically notable" — calls that warrant attention regardless of
+    # mobilisation evidence. This is on top of the risk-rule output: it
+    # flags last-resort drug classes (CARBAPENEM, COLISTIN, GLYCOPEPTIDE)
+    # plus β-lactamase calls with strong sequence support. The intent is
+    # to never let a clinically important call hide under "MEDIUM" just
+    # because geNomad did not score the contig as plasmid.
+    _CLINICALLY_NOTABLE_CLASSES = {'CARBAPENEM', 'COLISTIN', 'GLYCOPEPTIDE'}
+    _CLIN_STRONG_BETA_LACTAM = {'BETA-LACTAM', 'CEPHALOSPORIN'}
+    if not integ.empty:
+        _cl = integ['AMR_class'].astype(str).str.upper()
+        _ident = pd.to_numeric(integ.get('Identity_pct', 0), errors='coerce').fillna(0)
+        _cov = pd.to_numeric(integ.get('Coverage_pct', 0), errors='coerce').fillna(0)
+        _mask = (
+            _cl.isin(_CLINICALLY_NOTABLE_CLASSES)
+            | (_cl.isin(_CLIN_STRONG_BETA_LACTAM)
+               & (_ident >= 95) & (_cov >= 90))
+        )
+        n_clin_notable = int(_mask.sum())
+    else:
+        n_clin_notable = 0
+
     pct_unclass = run_stats['pct_unclassified'] if run_stats else 0
     total_run_reads = run_stats['total_reads'] if run_stats else 0
     unclass_reads = run_stats['unclassified_reads'] if run_stats else 0
@@ -4693,11 +5180,17 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
             <div class="value">{n_amr}</div>
             <div class="label">AMR Genes</div>
         </div>
-        <div class="metric-card">
+        <div class="metric-card" title="AMR calls that match risk-rule R1 or R1b: high-risk class on confirmed plasmid OR last-resort class with strong sequence support, regardless of location.">
             <div class="value" style="color:{RED if n_critical > 0 else GREEN}">
                 {n_critical}
             </div>
-            <div class="label">Critical Risk</div>
+            <div class="label">Critical Risk<br><small style="font-weight:normal;color:#888">R1+R1b</small></div>
+        </div>
+        <div class="metric-card" title="Clinically notable AMR genes — last-resort classes (carbapenem, colistin, glycopeptide) plus high-support β-lactam/cephalosporin calls — regardless of plasmid evidence. Surfaces clinically important calls that risk rules alone may dilute.">
+            <div class="value" style="color:{ORANGE if n_clin_notable > 0 else GREEN}">
+                {n_clin_notable}
+            </div>
+            <div class="label">Clinically<br>notable AMR</div>
         </div>
     </div>"""
 
@@ -4721,8 +5214,9 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
     retention_chart = fig_to_html(chart_retention(surv))
     summary_chart = fig_to_html(chart_summary_bar(data))
     taxonomy_chart = fig_to_html(chart_taxonomy_stacked(tax_df, checkm2, tax_info))
-    heatmap_chart = fig_to_html(chart_amr_heatmap(integ))
-    amr_gene_heatmap = fig_to_html(chart_amr_gene_heatmap(integ, amr_mags))
+    # `heatmap_chart` and `amr_gene_heatmap` were removed with the
+    # AMR-class summary section — the gene-level heatmap was replaced
+    # by per-sample heatmaps inside the reads and MAG sections.
     risk_chart = fig_to_html(chart_risk_summary(integ))
     bins_chart = fig_to_html(chart_bins_per_binner(bins_df))
 
@@ -4901,22 +5395,11 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
                     {html_fastqscreen_detail(fqs_detail, run_params.get('params', {}).get('target_organisms', ''))}
                 </details>
 
-                <h4 style="margin-top:1.5em">Bracken vs Sylph at genus level · executive view</h4>
-                <p>Per-sample shared / discordant counts and the three biggest
-                abundance disagreements between classifiers. <em>B</em> = Bracken-only,
-                <em>S</em> = Sylph-only. Open the drill-down for the full
-                per-genus table.</p>
-                {html_sylph_summary(data['sylph_concordance'])}
-                <details class="prov-panel" style="margin-top:0.6rem">
-                    <summary><span class="prov-icon">+</span>
-                    <span>Drill-down: full Bracken vs Sylph per-genus table</span>
-                    </summary>
-                    <p style="margin-top:0.6rem">
-                    Where Sylph adds (or fails to add) signal over Kraken2/Bracken
-                    in this run, gene by gene.
-                    </p>
-                    {html_sylph_concordance(data['sylph_concordance'])}
-                </details>
+                <h4 style="margin-top:1.5em">Bracken vs Sylph · top-10 genera per sample</h4>
+                <p>Plain side-by-side comparison of the two classifiers at
+                genus level — no verdict, no synthetic category. The user
+                reads the two columns directly and decides.</p>
+                {html_bracken_sylph_top10(data.get('bracken_genus'), data.get('sylph_genus'))}
 
                 {_prov('screening')}
             </div>
@@ -4947,16 +5430,23 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
             <div class="section-body">
                 <p>Filtered reads are mapped against the type-strain
                 genomes of the surveillance panel
-                (<code>params.phenotypic_targets</code>). The triage
-                table below interprets <em>mean depth</em> and
-                <em>breadth</em> together: a real organism shows depth
-                AND breadth aligned, while chance contact gives high
-                breadth at 1× but vanishes at 10× and 30×. This is the
-                independent confirmation layer for the surveillance
-                organisms — orthogonal to Kraken2/Sylph (which classify
-                reads against general DBs) and to the MAG layer (which
-                needs binnable assemblies).</p>
-                {html_phenotypic_table(data.get('phenotypic'))}
+                (<code>params.phenotypic_targets</code>). The heatmap
+                below uses <strong>breadth ≥10×</strong> as the colour
+                metric — the trustworthy signal: a real organism shows
+                depth AND breadth aligned, while chance contact gives
+                high breadth at 1× but vanishes at 10× and 30×. This
+                is the independent confirmation layer for the
+                surveillance organisms — orthogonal to Kraken2/Sylph
+                (which classify reads against general DBs) and to the
+                MAG layer (which needs binnable assemblies). Hover any
+                cell for full depth and the three breadth tiers.</p>
+                {fig_to_html(chart_phenotypic_heatmap(data.get('phenotypic')))}
+                <details class="prov-panel" style="margin-top:0.6rem">
+                    <summary><span class="prov-icon">+</span>
+                    <span>Drill-down: full per-sample × species table</span>
+                    </summary>
+                    {html_phenotypic_table(data.get('phenotypic'))}
+                </details>
                 {_prov('phenotypic')}
             </div>
         </div>
@@ -4968,6 +5458,12 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
                 database. High coverage with low depth typically means a
                 short-template artifact — depth is the more honest signal
                 for read-level resistance.</p>
+                <h4>Sample × gene overview · best identity per gene</h4>
+                <p>One row per sample, one column per gene family. Colour =
+                best % identity across alleles in that sample, restricted
+                to credible hits (depth ≥ 10×). Hover lists every allele
+                detected for the gene in that sample.</p>
+                {fig_to_html(chart_kma_sample_heatmap(data['kma']))}
                 {html_kma_reads_table(data['kma'])}
                 {_prov('amr-reads')}
             </div>
@@ -5051,37 +5547,15 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
                 <em>Risk</em> badge follows the deterministic rule set documented
                 in the “Risk model” section — hover the rule ID for the trigger.</p>
                 {html_amr_detail(integ, amr_mags)}
+                <h4 style="margin-top:1em">Sample × gene overview · contig-level</h4>
+                <p>Mirror of the read-level KMA heatmap above, this time
+                from AMRFinderPlus on the assembled contigs. Colour =
+                composite <em>confidence</em> (0–100): identity + coverage +
+                detection method + KMA-MAG concordance + MAG quality.
+                Per-bin breakdown is in the AMR detail table; hover
+                lists which MAGs carry the gene.</p>
+                {fig_to_html(chart_amr_contigs_sample_heatmap(integ, amr_mags))}
                 {_prov('amr-mags')}
-            </div>
-        </div>
-
-        <div class="section" id="sec-heatmap">
-            <div class="section-header">AMR profile heatmap · gene-level + class summary</div>
-            <div class="section-body">
-                <p>Two complementary views of the same AMR landscape.
-                The <strong>gene-level heatmap</strong> below clusters
-                organisms by their resistance fingerprint and groups
-                columns by antibiotic class — co-occurrence patterns
-                across MAGs are immediately visible.
-                <strong>Colour = coverage %</strong> (not identity):
-                identity saturates above 95% post-Nanopore polishing
-                and the 90% filter compresses every cell to the same
-                band, while coverage keeps a real gradient from the
-                80% threshold up to 100%, distinguishing full-length
-                gene calls from edge-of-contig truncations. Identity
-                stays in the per-cell hover. The <strong>class
-                summary</strong> further down counts genes per
-                organism × class for a bird's-eye view of dissemination.</p>
-                {html_amr_class_legend()}
-                {amr_gene_heatmap}
-                <h4 style="margin-top:1em">Class-level summary</h4>
-                <p>Intensity = number of AMR genes per organism × class
-                combination. Useful when the gene-level heatmap is dense:
-                a column lit up across many organisms is a signal of
-                horizontal spread; a single dark cell is an organism-specific
-                accumulation.</p>
-                {heatmap_chart}
-                {_prov('amr-heatmap')}
             </div>
         </div>
 
@@ -5208,6 +5682,190 @@ def build_report(data, org_info, logo_b64, run_name, results_dir=''):
 # ═══════════════════════════════════════════════════════════════
 # MAIN
 # ═══════════════════════════════════════════════════════════════
+
+def export_data_tables(out_dir, run_name, data, amrfinder_catalog=None):
+    """Write per-source detailed CSVs to <out_dir>/33_data_tables_<run_name>/.
+
+    The HTML report is for triage; this folder is what the lab uses to
+    review or share results. Each CSV is the most complete version of
+    what each section displays: long format (one row per observation),
+    with sample columns explicit, AMR catalogue annotations merged in,
+    and any computed columns (confidence, risk rule, etc.) preserved.
+
+    Returns the path of the folder created, or None on failure.
+    """
+    if not out_dir or not run_name:
+        return None
+    folder_name = f'33_data_tables_{run_name}'
+    folder = os.path.join(out_dir, folder_name)
+    try:
+        os.makedirs(folder, exist_ok=True)
+    except Exception as e:
+        print(f'[WARN] Could not create CSV export folder: {e}')
+        return None
+
+    def _write(df, name):
+        if df is None or (hasattr(df, 'empty') and df.empty):
+            return
+        try:
+            df.to_csv(os.path.join(folder, name), index=False, sep='\t')
+        except Exception as e:
+            print(f'[WARN] Could not write {name}: {e}')
+
+    # ── 01 QC raw + filtered ──────────────────────────────────
+    surv = data.get('survival')
+    _write(surv, '01_qc_survival.tsv')
+
+    # ── 02 FastQ Screen detail (long) ──────────────────────────
+    fqs = data.get('fqs_detail')
+    if fqs is not None and not fqs.empty:
+        cat_targets = (data.get('run_params', {}).get('params', {})
+                       .get('target_organisms', '') if data.get('run_params')
+                       else '')
+        target_set = [g.strip() for g in (cat_targets or '').split(',') if g.strip()]
+        out_fqs = fqs.copy()
+        out_fqs['Category'] = out_fqs['Genome'].apply(
+            lambda g: classify_panel_genome(g, target_set)[0])
+        _write(out_fqs, '02_fastqscreen_long.tsv')
+
+    # ── 07–08 Read taxonomy (Bracken genus + Kraken/Kaiju are upstream) ─
+    _write(data.get('bracken_genus'), '08_bracken_genus_long.tsv')
+    _write(data.get('sylph_genus'),   '10_sylph_genus_long.tsv')
+
+    # ── 11 KMA all hits with parsed gene / allele / accession ──
+    kma = data.get('kma')
+    if kma is not None and not kma.empty:
+        out_kma = kma.copy()
+        # Tier label
+        out_kma['Depth_tier'] = np.where(
+            out_kma['KMA_Depth'] >= KMA_DEPTH_TRUSTED,
+            'trusted (>=10x)', 'low-depth (<10x)')
+        _write(out_kma, '11_kma_reads_all_hits.tsv')
+
+    # ── 12 Phenotypic verification (long, with verdict) ────────
+    pheno = data.get('phenotypic')
+    if pheno is not None and not pheno.empty:
+        out_p = pheno.copy()
+        def _verdict(r):
+            d = float(r['Mean_depth']); b10 = float(r['Breadth_10x'])
+            if d >= 5 and b10 >= 30: return 'Confirmed'
+            if d >= 1 and b10 >= 5:  return 'Partial'
+            if r['Mapped'] > 0:      return 'Trace mapping'
+            return 'Absent'
+        out_p['Verdict'] = out_p.apply(_verdict, axis=1)
+        _write(out_p, '12_phenotypic_long.tsv')
+
+    # ── 23 CheckM2 ─────────────────────────────────────────────
+    _write(data.get('checkm2'), '23_checkm2_all.tsv')
+
+    # ── 24 MAG taxonomy ────────────────────────────────────────
+    _write(data.get('taxonomy'), '24_mag_taxonomy.tsv')
+
+    # ── 25 AMR per MAG (all bins combined, Sample explicit) ────
+    amr_mags = data.get('amr_mags')
+    if amr_mags is not None and not amr_mags.empty:
+        out_a = amr_mags.copy()
+        # Ensure Sample is the first column
+        cols = ['Sample'] + [c for c in out_a.columns if c != 'Sample']
+        _write(out_a[cols], '25_amr_mags_per_bin.tsv')
+
+    # ── 26 geNomad plasmids: all + AMR-bearing enriched ────────
+    plasmids = data.get('plasmids')
+    if plasmids is not None and not plasmids.empty:
+        _write(plasmids, '26_genomad_plasmids_all.tsv')
+        amr_only = plasmids[
+            plasmids['AMR_genes'].astype(str).str.strip().ne('')].copy()
+        if not amr_only.empty:
+            # Enrich every NF id with gene/class from the catalogue
+            if amrfinder_catalog:
+                def _gene(s):
+                    ids = [x.strip() for x in re.split(r'[;,]', str(s))
+                           if x.strip()]
+                    out = []
+                    for nf in ids:
+                        info = amrfinder_catalog.get(nf.split('.', 1)[0], {})
+                        if info.get('gene_symbol'):
+                            out.append(f"{nf}={info.get('gene_symbol')}"
+                                       f"|{info.get('class', '')}"
+                                       f"|{info.get('subclass', '')}")
+                        else:
+                            out.append(nf)
+                    return ' ; '.join(out)
+                amr_only = amr_only.assign(
+                    AMR_genes_annotated=amr_only['AMR_genes'].apply(_gene))
+            _write(amr_only, '26_genomad_plasmids_with_amr.tsv')
+
+    # ── 26b AMR on plasmid sequences (AMRFinderPlus) ───────────
+    _write(data.get('amr_plasmids'), '26_amr_on_plasmids.tsv')
+
+    # ── 27 AMR-pathogen integration (combined per sample) ──────
+    _write(data.get('integration'), '27_amr_pathogen_integration.tsv')
+
+    # ── 28 VFDB virulence ──────────────────────────────────────
+    _write(data.get('vfdb'), '28_abricate_vfdb.tsv')
+
+    # ── 29 MOB-suite ───────────────────────────────────────────
+    _write(data.get('mobsuite'), '29_mobsuite.tsv')
+
+    # ── 30 IntegronFinder summary + raw ────────────────────────
+    _write(data.get('integron_summary'), '30_integronfinder_summary.tsv')
+    _write(data.get('integrons_raw'),    '30_integronfinder_detail.tsv')
+
+    # ── 31 Bakta annotation per bin ────────────────────────────
+    _write(data.get('bakta'), '31_bakta_summaries.tsv')
+
+    # ── Cross-cutting ──────────────────────────────────────────
+    _write(data.get('concordance'), '27_concordance_kma_vs_mags.tsv')
+
+    # ── Trace.txt with anomalies marker ────────────────────────
+    trace_df = data.get('trace')
+    if trace_df is not None and not trace_df.empty:
+        out_t = trace_df.copy()
+        try:
+            anom = trace_anomalies(trace_df)
+            flag_lookup = (
+                {tid: ','.join(flags) for tid, flags in
+                 zip(anom['task_id'], anom['Anomaly_flags'])}
+                if not anom.empty else {})
+            out_t['Anomaly_flags'] = out_t['task_id'].map(flag_lookup).fillna('')
+        except Exception:
+            out_t['Anomaly_flags'] = ''
+        _write(out_t, 'trace_with_anomalies.tsv')
+
+    # Manifest / README so the folder is self-describing
+    manifest = [
+        '# 33_data_tables — detailed per-source tables',
+        f'# Generated for run: {run_name}',
+        '# All files are tab-separated (.tsv) for safe Excel + R/Pandas import.',
+        '',
+        '01_qc_survival.tsv             — per-sample raw vs clean reads / Gb / retention',
+        '02_fastqscreen_long.tsv        — per-sample × panel-genome FastQ Screen (with inferred Category)',
+        '08_bracken_genus_long.tsv      — per-sample × genus reads counts and %',
+        '10_sylph_genus_long.tsv        — per-sample × genus Sylph abundances',
+        '11_kma_reads_all_hits.tsv      — KMA per template: gene · allele · accession · identity · coverage · depth · tier',
+        '12_phenotypic_long.tsv         — minimap2 vs panel targets, with Verdict (Confirmed/Partial/Trace/Absent)',
+        '23_checkm2_all.tsv             — CheckM2 quality per MAG',
+        '24_mag_taxonomy.tsv            — MAG taxonomy (active classifier)',
+        '25_amr_mags_per_bin.tsv        — AMRFinderPlus per (Sample, Bin) — all columns',
+        '26_genomad_plasmids_all.tsv    — every geNomad plasmid contig',
+        '26_genomad_plasmids_with_amr.tsv — only AMR-bearing plasmids with NF-id → gene/class annotation',
+        '26_amr_on_plasmids.tsv         — independent AMRFinderPlus pass on plasmid FASTA',
+        '27_amr_pathogen_integration.tsv — integrated AMR×MAG×plasmid×risk',
+        '27_concordance_kma_vs_mags.tsv — reads-vs-contigs concordance with allele lists',
+        '28_abricate_vfdb.tsv           — virulence factors (VFDB)',
+        '29_mobsuite.tsv                — MOB-suite plasmid typing',
+        '30_integronfinder_summary.tsv  — integron summary per (Sample, Bin)',
+        '30_integronfinder_detail.tsv   — integron raw IntegronFinder output',
+        '31_bakta_summaries.tsv         — Bakta annotation counts per bin',
+        'trace_with_anomalies.tsv       — Nextflow trace with anomaly flags appended',
+    ]
+    try:
+        with open(os.path.join(folder, 'README.txt'), 'w') as fh:
+            fh.write('\n'.join(manifest))
+    except Exception:
+        pass
+    return folder
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -5373,6 +6031,7 @@ def main():
         'fqs_detail': fqs_detail,
         'sylph_concordance': sylph_concordance,
         'bracken_genus': bracken_genus,
+        'sylph_genus': sylph_genus,
         'rarefaction': rarefaction_df,
         'phenotypic': pheno_df,
         'trace': trace_df,
@@ -5393,6 +6052,20 @@ def main():
 
     size_mb = os.path.getsize(args.output) / (1024 * 1024)
     print(f'[OK] Report written: {args.output} ({size_mb:.1f} MB)')
+
+    # Detailed per-source CSVs for offline review by the lab. Lives next
+    # to the HTML so the run is self-contained.
+    print('[INFO] Exporting per-source CSV tables...')
+    csv_folder = export_data_tables(
+        out_dir=args.results_dir,
+        run_name=args.run_name,
+        data=data,
+        amrfinder_catalog=amrfinder_catalog)
+    if csv_folder:
+        n = len([f for f in os.listdir(csv_folder)
+                 if f.endswith('.tsv')])
+        print(f'[OK] {n} detailed CSV tables written to {csv_folder}')
+
     print('[DONE]')
 
 
